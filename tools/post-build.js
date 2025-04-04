@@ -19,4 +19,8 @@ packageJson.bin = {
   calljmp: `./${binPath}`,
 };
 
-fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf-8');
+fs.writeFileSync(
+  packageJsonPath,
+  JSON.stringify(packageJson, null, 2),
+  'utf-8'
+);

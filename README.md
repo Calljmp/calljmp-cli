@@ -73,6 +73,46 @@ If you want to persist the data between restarts, you can specify the `--persist
 calljmp start --persist-database
 ```
 
+### 4️⃣ Deploy to Calljmp
+
+TBD
+
+### Environemnt variables
+
+You can set environment variables in the `.env` file with `CALLJMP_` prefix or without prefix in `.service.env`. The CLI will automatically load them when you run the commands.
+
+For example:
+
+.env:
+
+```sh
+CALLJMP_SOME_SECRET_KEY=123456789
+```
+
+.service.env:
+
+```sh
+ANOTHER_SECRET_KEY=QWERTYUIOP
+```
+
+Then in code you will have access to:
+
+```typescript
+import { Hono } from 'hono';
+import { Service } from './service.d';
+
+const service = new Hono<Service>();
+
+service.get('/', async (c) => {
+  return c.json({
+    one: c.env.ANOTHER_SECRET_KEY,
+    other: c.env.SOME_SECRET_KEY,
+  });
+});
+
+export default service;
+```
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
