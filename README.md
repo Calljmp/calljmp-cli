@@ -9,7 +9,7 @@
 
 Calljmp is a **secure backend designed for mobile developers**, providing:
 
-- ✅ **Authentication** via **App Attestation (iOS)**
+- ✅ **Authentication** via **App Attestation (iOS)** and **Play Integrity (Android)**
 - ✅ **Full SQLite database access** (no restrictions, run raw SQL)
 - ✅ **Dynamic permissions** for users & roles
 - ✅ **React Native SDK** for seamless integration
@@ -50,10 +50,16 @@ calljmp configure
 Execute the login command to authenticate with your Calljmp account:
 
 ```sh
-calljmp login
+calljmp account login
 ```
 
 ### 3️⃣ Local development
+
+Change current directory or supply `--project` flag to specify the project you want to work with.
+
+```sh
+calljmp --project <project-name> start
+```
 
 Run the local development server to develop your backend locally:
 
@@ -83,13 +89,13 @@ You can set environment variables in the `.env` file with `CALLJMP_` prefix or w
 
 For example:
 
-.env:
+`.env`:
 
 ```sh
 CALLJMP_SOME_SECRET_KEY=123456789
 ```
 
-.service.env:
+`.service.env`:
 
 ```sh
 ANOTHER_SECRET_KEY=QWERTYUIOP
@@ -123,4 +129,4 @@ If you have any questions or feedback:
 
 - Follow [@calljmpdev](https://x.com/calljmpdev)
 - Join the [Calljmp Discord](https://discord.gg/DHsrADPUC6)
-- Open an issue in the [GitHub repo](https://github.com/Calljmp/calljmp-react-native/issues)
+- Open an issue in the [GitHub repo](https://github.com/Calljmp/calljmp-cli/issues)
