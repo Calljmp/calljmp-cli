@@ -1,0 +1,99 @@
+{
+  "name": "cli",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/cli/src",
+  "projectType": "application",
+  "tags": [],
+  "targets": {
+    "build:development": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "platform": "node",
+        "outputPath": "dist/apps/cli",
+        "format": [
+          "cjs"
+        ],
+        "bundle": false,
+        "main": "apps/cli/src/main.ts",
+        "tsConfig": "apps/cli/tsconfig.app.json",
+        "minify": false,
+        "esbuildOptions": {
+          "sourcemap": true,
+          "outExtension": {
+            ".js": ".js"
+          }
+        }
+      }
+    },
+    "build:production": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "platform": "node",
+        "outputPath": "dist/apps/cli",
+        "format": [
+          "cjs"
+        ],
+        "bundle": false,
+        "main": "apps/cli/src/main.ts",
+        "tsConfig": "apps/cli/tsconfig.app.json",
+        "assets": [
+          "apps/cli/README.md",
+          "apps/cli/LICENSE"
+        ],
+        "generatePackageJson": true,
+        "minify": true,
+        "esbuildOptions": {
+          "sourcemap": false,
+          "outExtension": {
+            ".js": ".js"
+          }
+        }
+      }
+    },
+    "publish": {
+      "defaultConfiguration": "production",
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build:production"
+      ],
+      "options": {
+        "cwd": "dist/apps/cli",
+        "commands": [
+          "node ../../../apps/cli/tools/post-build.js",
+          "npm publish --access public"
+        ],
+        "parallel": false
+      }
+    },
+    "run": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build:development"
+      ],
+      "options": {
+        "commands": [
+          "node dist/apps/cli/main.js"
+        ],
+        "parallel": false,
+        "env": {
+          "CALLJMP_BASE_URL": "http://localhost:8787"
+        }
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/cli",
+        "commands": [
+          "tsc -p tsconfig.app.json --noEmit"
+        ]
+      }
+    }
+  }
+}

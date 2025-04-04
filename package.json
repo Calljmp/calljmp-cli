@@ -1,0 +1,21 @@
+{
+  "name": "@calljmp/cli",
+  "version": "0.0.0",
+  "description": "Calljmp CLI",
+  "keywords": [
+    "calljmp",
+    "database",
+    "cli",
+    "react-native"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Calljmp/calljmp-cli.git"
+  },
+  "author": "Calljmp <info@calljmp.com> (https://calljmp.com)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Calljmp/calljmp-cli/issues"
+  },
+  "homepage": "https://github.com/Calljmp/calljmp-cli#readme"
+}
