@@ -2,7 +2,7 @@
 
 **Secure backend-as-a-service for mobile developers. No API keys. Full SQLite control.**
 
-[![npm version](https://img.shields.io/npm/v/@calljmp/react-native)](https://www.npmjs.com/package/@calljmp/cli)
+[![npm version](https://img.shields.io/npm/v/@calljmp/cli)](https://www.npmjs.com/package/@calljmp/cli)
 [![GitHub license](https://img.shields.io/github/license/Calljmp/calljmp-cli)](LICENSE)
 
 ## 🚀 Overview

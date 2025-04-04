@@ -56,7 +56,7 @@
         }
       }
     },
-    "publish": {
+    "publish:npm": {
       "defaultConfiguration": "production",
       "executor": "nx:run-commands",
       "dependsOn": [
@@ -69,6 +69,18 @@
           "npm publish --access public"
         ],
         "parallel": false
+      }
+    },
+    "publish:git": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "typecheck"
+      ],
+      "options": {
+        "cwd": "apps/cli",
+        "commands": [
+          "./tools/git-publish.sh"
+        ]
       }
     },
     "run": {
