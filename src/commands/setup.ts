@@ -40,7 +40,7 @@ const setup = () =>
       if (!authorized) {
         const result = await login(account);
         if (!result) {
-          return;
+          process.exit(1);
         }
         cfg.accessToken = result.accessToken;
         await writeConfig(cfg);
@@ -48,7 +48,7 @@ const setup = () =>
 
       if (!cfg.accessToken) {
         logger.error(chalk.red('No authorization token found!'));
-        return;
+        process.exit(1);
       }
 
       const project = new Project({
@@ -58,7 +58,7 @@ const setup = () =>
 
       const selectedProject = await selectProject({ project });
       if (!selectedProject) {
-        return;
+        process.exit(1);
       }
       if (cfg.projectId !== selectedProject.id) {
         cfg.projectId = selectedProject.id;

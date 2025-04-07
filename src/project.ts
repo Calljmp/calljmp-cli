@@ -48,4 +48,39 @@ export class Project {
       nextOffset: result.nextOffset,
     };
   }
+
+  async deployService({
+    projectId,
+    script,
+    secrets,
+    variables,
+  }: {
+    projectId: number;
+    script: string;
+    secrets?: Record<string, string>;
+    variables?: Record<string, string>;
+  }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}/service`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          script,
+          secrets,
+          variables,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+  }
 }

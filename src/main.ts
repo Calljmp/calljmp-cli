@@ -5,6 +5,7 @@ import start from './commands/start';
 import database from './commands/database';
 import setup from './commands/setup';
 import { version } from './version';
+import deploy from './commands/deploy';
 
 async function main() {
   const brand = gradient(['#28e2ad', '#0b77e6']);
@@ -25,7 +26,11 @@ async function main() {
     .description('CLI for Calljmp')
     .version(await version());
 
-  program.addCommand(setup()).addCommand(start()).addCommand(database());
+  program
+    .addCommand(setup())
+    .addCommand(start())
+    .addCommand(database())
+    .addCommand(deploy());
 
   program.parse(process.argv);
 }

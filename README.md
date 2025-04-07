@@ -83,24 +83,30 @@ calljmp database reset
 
 ### 4️⃣ Deploy to Calljmp
 
-TBD
+Deploy your local changes to the cloud:
+
+```sh
+calljmp deploy
+```
 
 ### Environemnt variables
 
-You can set environment variables in the `.env` file with `CALLJMP_` prefix or without prefix in `.service.env`. The CLI will automatically load them when you run the commands.
+You can set environment variables in the `.env` file with `CALLJMP_` prefix or without prefix in `.service.env`. In order to protect a value upon deployment and access outside of the service scope prepend key with `SECRET_` prefix. The CLI will automatically load them when you run the commands.
 
 For example:
 
 `.env`:
 
 ```sh
-CALLJMP_SOME_SECRET_KEY=123456789
+CALLJMP_SOME_TOKEN = "not a secret token"
+CALLJMP_SECRET_TOKEN = "encrypted secret token"
 ```
 
 `.service.env`:
 
 ```sh
-ANOTHER_SECRET_KEY=QWERTYUIOP
+ANOTHER_TOKEN = "another public token"
+SECRET_ANOTHER_SAFE_TOKEN = "encrypted another secret token"
 ```
 
 Then in code you will have access to:
@@ -113,8 +119,10 @@ const service = new Hono<Service>();
 
 service.get('/', async (c) => {
   return c.json({
-    one: c.env.ANOTHER_SECRET_KEY,
-    other: c.env.SOME_SECRET_KEY,
+    one: c.env.SOME_TOKEN,
+    other: c.env.ANOTHER_TOKEN,
+    firstSecret: c.env.TOKEN,
+    secondSecret: c.env.ANOTHER_SAFE_TOKEN,
   });
 });
 

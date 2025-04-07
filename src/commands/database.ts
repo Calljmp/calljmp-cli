@@ -41,7 +41,7 @@ const pull = () =>
 
       if (!cfg.accessToken || !cfg.projectId) {
         logger.error(chalk.red('Please run setup first!'));
-        return;
+        process.exit(1);
       }
 
       const statements: string[] = [];
