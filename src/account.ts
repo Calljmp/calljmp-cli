@@ -1,34 +1,27 @@
-import path from 'path';
-import fs from 'fs/promises';
 import fetch from 'node-fetch';
 
 export class Account {
   private _accessToken: string | null = null;
-  private _accessTokenPath: string;
 
   constructor(
     private _config: {
       baseUrl: string;
-      dataDirectory: string;
+      accessToken?: string;
     }
-  ) {
-    this._accessTokenPath = path.join(this._config.dataDirectory, 'at');
-  }
+  ) { }
 
   async accessToken() {
     if (this._accessToken) {
       return this._accessToken;
     }
-    const accessToken = await fs
-      .readFile(this._accessTokenPath, 'utf-8')
-      .catch(() => null);
 
-    if (accessToken) {
+    const providedToken = this._config.accessToken;
+    if (providedToken) {
       try {
         // JWT tokens consist of three parts separated by dots
-        const [, payload] = accessToken.split('.');
+        const [, payload] = providedToken.split('.');
         if (!payload) {
-          throw new Error('Invalid token format');
+          return null;
         }
 
         // Decode the base64 payload
@@ -42,32 +35,15 @@ export class Account {
 
         // 30 minutes grace period
         if (currentTime >= expirationTime + 30 * 60 * 1000) {
-          throw new Error('Token expired');
+          return null;
         }
       } catch {
-        // If token parsing fails, consider it invalid
-        await this.clearAccessToken();
         return null;
       }
     }
 
-    this._accessToken = accessToken;
-    return accessToken;
-  }
-
-  private async putAccessToken(accessToken: string) {
-    this._accessToken = accessToken;
-    await fs.mkdir(path.dirname(this._accessTokenPath), { recursive: true });
-    await fs.writeFile(this._accessTokenPath, accessToken);
-  }
-
-  private async clearAccessToken() {
-    this._accessToken = null;
-    await fs.rm(this._accessTokenPath, { force: true });
-  }
-
-  async reset() {
-    await this.clearAccessToken();
+    this._accessToken = providedToken || null;
+    return this._accessToken;
   }
 
   async authorized() {
@@ -129,8 +105,8 @@ export class Account {
         accessToken: string;
       };
 
-      await this.putAccessToken(accessToken);
-      return accessToken;
+      this._accessToken = accessToken;
+      return { accessToken };
     }
 
     throw new Error('Timeout waiting for access token');

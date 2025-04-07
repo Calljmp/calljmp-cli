@@ -1,54 +1,13 @@
-import { Command } from 'commander';
-import { Config } from '../config';
 import fs from 'fs/promises';
 import path from 'path';
-import logger from '../logger';
 import chalk from 'chalk';
 import { exec } from 'child_process';
 import ora from 'ora';
 import enquirer from 'enquirer';
-import { readVariables } from '../env';
+import logger from './logger';
+import { readVariables } from './env';
 
-const configure = (config: () => Config) =>
-  new Command('configure')
-    .description('Configure the project')
-    .option('--types', 'Generate types')
-    .option('--ignores', 'Generate ignores')
-    .action(async (args: { types?: boolean; ignores?: boolean }) => {
-      const automated = !!args.types || !!args.ignores;
-      const ignores = ['.calljmp', '.service.env', '.env'];
-
-      const cfg = config();
-
-      if (!automated) {
-        await configureDependencies({
-          directory: cfg.project,
-        });
-        await configureIgnores({
-          directory: cfg.project,
-          entries: ignores,
-        });
-        await configureTypes({
-          directory: cfg.project,
-          types: cfg.types,
-        });
-      } else {
-        if (args.types) {
-          await configureTypes({
-            directory: cfg.project,
-            types: cfg.types,
-          });
-        }
-        if (args.ignores) {
-          await configureIgnores({
-            directory: cfg.project,
-            entries: ignores,
-          });
-        }
-      }
-    });
-
-async function configureIgnores({
+export async function configureIgnores({
   directory,
   entries,
 }: {
@@ -97,7 +56,7 @@ async function configureIgnores({
   }
 }
 
-async function configureTypes({
+export async function configureTypes({
   directory,
   types,
 }: {
@@ -136,7 +95,7 @@ async function configureTypes({
   logger.info(chalk.blue(`Generating ${path.basename(types)}`));
 }
 
-async function configureDependencies({ directory }: { directory: string }) {
+export async function configureDependencies({ directory }: { directory: string }) {
   const currentDirectory = process.cwd();
   const relativePath = path.relative(currentDirectory, directory);
 
@@ -198,8 +157,8 @@ async function configureDependencies({ directory }: { directory: string }) {
         packageManager === 'yarn'
           ? 'yarn add'
           : packageManager === 'pnpm'
-          ? 'pnpm add'
-          : 'npm install';
+            ? 'pnpm add'
+            : 'npm install';
       const devFlag = dev ? '--save-dev' : '--save';
 
       await new Promise((resolve, reject) => {
@@ -228,5 +187,3 @@ async function configureDependencies({ directory }: { directory: string }) {
   await install('@cloudflare/workers-types', true);
   await install('@calljmp/react-native');
 }
-
-export default configure;

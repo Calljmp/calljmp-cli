@@ -5,8 +5,20 @@
   "projectType": "application",
   "tags": [],
   "targets": {
+    "common:sync": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": ".",
+        "commands": [
+          "rm -rf ./apps/cli/src/common && mkdir -p ./apps/cli/src/common && cp -r ./libs/common/src/* ./apps/cli/src/common/"
+        ]
+      }
+    },
     "build:development": {
       "executor": "@nx/esbuild:esbuild",
+      "dependsOn": [
+        "common:sync"
+      ],
       "outputs": [
         "{options.outputPath}"
       ],
@@ -30,6 +42,9 @@
     },
     "build:production": {
       "executor": "@nx/esbuild:esbuild",
+      "dependsOn": [
+        "common:sync"
+      ],
       "outputs": [
         "{options.outputPath}"
       ],
@@ -74,6 +89,7 @@
     "publish:git": {
       "executor": "nx:run-commands",
       "dependsOn": [
+        "common:sync",
         "typecheck"
       ],
       "options": {

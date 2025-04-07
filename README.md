@@ -37,29 +37,17 @@ yarn global add @calljmp/cli
 
 ## 🛠️ Setup & Usage
 
-### 1️⃣ Configure project
+Most commands require current directory to be a project root directory when executing them. You can optionally supply a project root directory with `--project <project-directory>` flag.
 
-Add ignores, generate types, and install dependencies.
+### 1️⃣ Setup and link project
 
-```sh
-calljmp configure
-```
-
-### 2️⃣ Login to Calljmp
-
-Execute the login command to authenticate with your Calljmp account:
+Add ignores, generate types, and install dependencies. It will also walk you through the login and linking process.
 
 ```sh
-calljmp account login
+calljmp setup
 ```
 
-### 3️⃣ Local development
-
-Change current directory or supply `--project` flag to specify the project you want to work with.
-
-```sh
-calljmp --project <project-name> start
-```
+### 2️⃣ Local development
 
 Run the local development server to develop your backend locally:
 
@@ -77,6 +65,20 @@ If you want to persist the data between restarts, you can specify the `--persist
 
 ```sh
 calljmp start --persist-database
+```
+
+### 3️⃣ Managing database
+
+Synchronize the database schema from your cloud project to local database:
+
+```sh
+calljmp database pull
+```
+
+You can reset the local database to its initial state with:
+
+```sh
+calljmp database reset
 ```
 
 ### 4️⃣ Deploy to Calljmp

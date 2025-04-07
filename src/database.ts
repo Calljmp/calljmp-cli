@@ -5,20 +5,18 @@ export class Database {
     private _config: {
       baseUrl: string;
       accessToken: string;
+      projectId: number;
     }
-  ) {}
+  ) { }
 
   private async _query(sql: string, params: (string | number)[] = []) {
-    const response = await fetch(`${this._config.baseUrl}/project/4/query`, {
+    const response = await fetch(`${this._config.baseUrl}/project/${this._config.projectId}/query`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this._config.accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        sql,
-        params,
-      }),
+      body: JSON.stringify({ sql, params }),
     });
 
     if (!response.ok) {
