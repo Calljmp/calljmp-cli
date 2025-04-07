@@ -37,10 +37,11 @@ async function buildConfig({
     entry: path.join(moduleDirectory, 'service.ts'),
     types: path.join(moduleDirectory, 'service.d.ts'),
   };
-};
+}
 
 async function readConfig(dataDirectory: string) {
-  const result = await fs.readFile(path.join(dataDirectory, 'config.json'), 'utf-8')
+  const result = await fs
+    .readFile(path.join(dataDirectory, 'config.json'), 'utf-8')
     .then((data) => JSON.parse(data) as PersistentConfig)
     .catch(() => null);
   return result;
@@ -49,21 +50,26 @@ async function readConfig(dataDirectory: string) {
 export async function writeConfig(config: Config) {
   const configPath = path.join(config.data, 'config.json');
   await fs.mkdir(config.data, { recursive: true });
-  await fs.writeFile(configPath, JSON.stringify({
-    projectId: config.projectId,
-    accessToken: config.accessToken,
-  }, null, 2));
+  await fs.writeFile(
+    configPath,
+    JSON.stringify(
+      {
+        projectId: config.projectId,
+        accessToken: config.accessToken,
+      },
+      null,
+      2
+    )
+  );
 }
 
 export const ConfigOptions = {
-  ProjectDirectory:
-    new Option('-p, --project <directory>', 'Project directory')
-      .default('.')
-      .env('CALLJMP_PROJECT'),
-  ModuleDirectory:
-    new Option('-m, --module <directory>', 'Module directory')
-      .default('./src/service')
-      .env('CALLJMP_MODULE'),
-}
+  ProjectDirectory: new Option('-p, --project <directory>', 'Project directory')
+    .default('.')
+    .env('CALLJMP_PROJECT'),
+  ModuleDirectory: new Option('-m, --module <directory>', 'Module directory')
+    .default('./src/service')
+    .env('CALLJMP_MODULE'),
+};
 
 export default buildConfig;

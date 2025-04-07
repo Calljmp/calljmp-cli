@@ -7,17 +7,20 @@ export class Database {
       accessToken: string;
       projectId: number;
     }
-  ) { }
+  ) {}
 
   private async _query(sql: string, params: (string | number)[] = []) {
-    const response = await fetch(`${this._config.baseUrl}/project/${this._config.projectId}/query`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this._config.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ sql, params }),
-    });
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${this._config.projectId}/query`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sql, params }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to execute query: ${response.statusText}`);

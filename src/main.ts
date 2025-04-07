@@ -23,12 +23,9 @@ async function main() {
   const program = new Command()
     .name('calljmp')
     .description('CLI for Calljmp')
-    .version(await version())
+    .version(await version());
 
-  program
-    .addCommand(setup())
-    .addCommand(start())
-    .addCommand(database())
+  program.addCommand(setup()).addCommand(start()).addCommand(database());
 
   program.parse(process.argv);
 }

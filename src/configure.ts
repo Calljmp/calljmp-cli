@@ -95,7 +95,11 @@ export async function configureTypes({
   logger.info(chalk.blue(`Generating ${path.basename(types)}`));
 }
 
-export async function configureDependencies({ directory }: { directory: string }) {
+export async function configureDependencies({
+  directory,
+}: {
+  directory: string;
+}) {
   const currentDirectory = process.cwd();
   const relativePath = path.relative(currentDirectory, directory);
 
@@ -157,8 +161,8 @@ export async function configureDependencies({ directory }: { directory: string }
         packageManager === 'yarn'
           ? 'yarn add'
           : packageManager === 'pnpm'
-            ? 'pnpm add'
-            : 'npm install';
+          ? 'pnpm add'
+          : 'npm install';
       const devFlag = dev ? '--save-dev' : '--save';
 
       await new Promise((resolve, reject) => {

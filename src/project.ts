@@ -1,11 +1,13 @@
-import fetch from "node-fetch";
-import { jsonToProject, ServiceError, ServiceErrorCode } from "./common";
+import fetch from 'node-fetch';
+import { jsonToProject, ServiceError, ServiceErrorCode } from './common';
 
 export class Project {
-  constructor(private _config: {
-    baseUrl: string;
-    accessToken: string;
-  }) { }
+  constructor(
+    private _config: {
+      baseUrl: string;
+      accessToken: string;
+    }
+  ) {}
 
   async list({
     offset,
@@ -16,18 +18,18 @@ export class Project {
   } = {}) {
     const params = new URLSearchParams();
     if (offset) {
-      params.append("offset", offset.toString());
+      params.append('offset', offset.toString());
     }
     if (limit) {
-      params.append("limit", limit.toString());
+      params.append('limit', limit.toString());
     }
 
     const response = await fetch(`${this._config.baseUrl}/project?${params}`, {
-      method: "GET",
+      method: 'GET',
       headers: {
         Authorization: `Bearer ${this._config.accessToken}`,
       },
-    })
+    });
 
     if (!response.ok) {
       const { error } = (await response.json()) as {

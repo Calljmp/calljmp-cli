@@ -8,7 +8,7 @@ export class Account {
       baseUrl: string;
       accessToken?: string;
     }
-  ) { }
+  ) {}
 
   async accessToken() {
     if (this._accessToken) {
