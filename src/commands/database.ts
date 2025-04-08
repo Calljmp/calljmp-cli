@@ -40,7 +40,9 @@ const pull = () =>
       const cfg = await buildConfig(args);
 
       if (!cfg.accessToken || !cfg.projectId) {
-        logger.error(chalk.red('Please run setup first!'));
+        logger.error(
+          chalk.red('Project is not linked. Please run `setup` command first.')
+        );
         process.exit(1);
       }
 

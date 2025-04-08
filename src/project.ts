@@ -83,4 +83,55 @@ export class Project {
       throw ServiceError.fromJson(error);
     }
   }
+
+  async listSecrets({ projectId }: { projectId: number }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}/service/secrets`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+
+    const result = (await response.json()) as {
+      name: string;
+      type?: string;
+    }[];
+
+    return result;
+  }
+
+  async deleteSecret({
+    projectId,
+    secretName,
+  }: {
+    projectId: number;
+    secretName: string;
+  }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}/service/secrets/${secretName}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+  }
 }

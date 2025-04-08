@@ -16,7 +16,7 @@ const deploy = () =>
 
       if (!cfg.projectId || !cfg.accessToken) {
         logger.error(
-          'Project is not linked. Please run `setup` command first.'
+          chalk.red('Project is not linked. Please run `setup` command first.')
         );
         process.exit(1);
       }

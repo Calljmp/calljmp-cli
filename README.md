@@ -89,6 +89,14 @@ Deploy your local changes to the cloud:
 calljmp deploy
 ```
 
+### Code generation
+
+Generate TypeScript types for environment variables, database, and resources:
+
+```sh
+calljmp generate
+```
+
 ### Environemnt variables
 
 You can set environment variables in the `.env` file with `CALLJMP_` prefix or without prefix in `.service.env`. In order to protect a value upon deployment and access outside of the service scope prepend key with `SECRET_` prefix. The CLI will automatically load them when you run the commands.

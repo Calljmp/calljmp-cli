@@ -6,6 +6,8 @@ import database from './commands/database';
 import setup from './commands/setup';
 import { version } from './version';
 import deploy from './commands/deploy';
+import generate from './commands/generate';
+import secrets from './commands/secrets';
 
 async function main() {
   const brand = gradient(['#28e2ad', '#0b77e6']);
@@ -30,7 +32,9 @@ async function main() {
     .addCommand(setup())
     .addCommand(start())
     .addCommand(database())
-    .addCommand(deploy());
+    .addCommand(deploy())
+    .addCommand(generate())
+    .addCommand(secrets());
 
   program.parse(process.argv);
 }
