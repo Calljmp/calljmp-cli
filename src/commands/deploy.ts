@@ -80,13 +80,19 @@ const deploy = () =>
       {
         const spinner = ora('Deploying service...').start();
         try {
-          await project.deployService({
+          const { uuid } = await project.deployService({
             projectId: cfg.projectId,
             script,
             secrets,
             variables,
           });
           spinner.succeed('Deployment completed');
+          logger.info(`Service deployed with UUID: ${chalk.blue(uuid)}`);
+          logger.info(
+            `Access your service at: ${chalk.blue(
+              cfg.baseUrl
+            )}/target/v1/service/${uuid}`
+          );
         } catch (e: any) {
           spinner.fail('Deployment failed');
           logger.error(e);

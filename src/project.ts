@@ -82,6 +82,12 @@ export class Project {
       };
       throw ServiceError.fromJson(error);
     }
+
+    const result = (await response.json()) as {
+      uuid: string;
+    };
+
+    return result;
   }
 
   async listSecrets({ projectId }: { projectId: number }) {
