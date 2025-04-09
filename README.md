@@ -103,7 +103,7 @@ If you do not want to use `Hono` framework and prefer raw fetch handling request
 calljmp generate --no-hono
 ```
 
-### Environemnt variables
+### Environment variables
 
 You can set environment variables in the `.env` file with `CALLJMP_` prefix or without prefix in `.service.env`. In order to protect a value upon deployment and access outside of the service scope prepend key with `SECRET_` prefix. The CLI will automatically load them when you run the commands.
 
@@ -141,14 +141,14 @@ service.get('/', async (c) => {
       c.var.serviceId
     );
 
-    if (!c.var.trusted) {
+    if (!c.var.trusted && !c.env.DEVELOPMENT) {
       // Calljmp was not able to confirm the device and app integrity when the service was called.
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
     if (!c.var.userId) {
       // User is not authenticated.
-      return c.json({ error: 'Unauthorized' }, 401);
+      return c.json({ error: 'Unathenticated' }, 401);
     }
   }
 

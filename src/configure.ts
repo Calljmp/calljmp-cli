@@ -157,6 +157,7 @@ export interface Env {
   db: D1Database;
 
   // Variables
+  DEVELOPMENT?: boolean;
   ${variables.map((variable) => `${variable}: string;`).join('\n  ')}
 
   // Secrets

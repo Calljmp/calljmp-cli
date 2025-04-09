@@ -3,21 +3,21 @@ import logger from './logger';
 import { build } from './build';
 import { watch } from './watch';
 import { readVariables, resolveEnvFiles } from './env';
+import chalk from 'chalk';
 
 export async function create({
-  projectDirectory,
   script,
   port,
   database,
   log,
+  bindings,
 }: {
-  projectDirectory: string;
   script: string;
   port?: number;
   database?: string;
   log?: Log;
+  bindings?: Record<string, unknown>;
 }) {
-  const variables = await readVariables(projectDirectory);
   return new Miniflare({
     name: 'calljmp',
     script,
@@ -28,7 +28,10 @@ export async function create({
     log,
     d1Persist: database,
     d1Databases: ['db'],
-    bindings: variables,
+    bindings: {
+      ...bindings,
+      DEVELOPMENT: true,
+    },
   });
 }
 
@@ -45,8 +48,42 @@ export async function start({
   signal?: AbortSignal;
   database?: string;
 }) {
+  const envs = await readVariables(projectDirectory);
+
+  const secrets = Object.entries(envs)
+    .filter(([key]) => key.toUpperCase().startsWith('SECRET_'))
+    .reduce((acc, [key, value]) => {
+      acc[key.toUpperCase().replace('SECRET_', '')] = value;
+      return acc;
+    }, {} as Record<string, string>);
+
+  const variables = Object.entries(envs)
+    .filter(([key]) => !key.toUpperCase().startsWith('SECRET_'))
+    .reduce((acc, [key, value]) => {
+      acc[key.toUpperCase()] = value;
+      return acc;
+    }, {} as Record<string, string>);
+
+  logger.info('Secrets:');
+  if (Object.keys(secrets).length > 0) {
+    Object.entries(secrets).forEach(([key]) => {
+      logger.info(`  ${chalk.gray(key)}: ${chalk.blue('********')}`);
+    });
+  } else {
+    logger.info('  No secrets found.');
+  }
+
+  logger.info('Variables:');
+  if (Object.keys(variables).length > 0) {
+    Object.entries(variables).forEach(([key, value]) => {
+      logger.info(`  ${chalk.gray(key)}: ${chalk.blue(value)}`);
+    });
+  } else {
+    logger.info('  No variables found.');
+  }
+
   const flare = await create({
-    projectDirectory,
+    bindings: envs,
     script,
     port,
     database,
@@ -87,7 +124,7 @@ export async function serve({
   let abortController: AbortController | null = null;
   await watch(
     [moduleDirectory, ...resolveEnvFiles(projectDirectory)],
-    'Detected changes, restarting...',
+    chalk.yellow('Detected changes, restarting...'),
     async () => {
       if (abortController) {
         abortController.abort();

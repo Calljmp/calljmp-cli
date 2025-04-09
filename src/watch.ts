@@ -1,6 +1,5 @@
 import chokidar from 'chokidar';
 import logger from './logger';
-import chalk from 'chalk';
 
 export async function watch(
   paths: string | string[],
@@ -14,8 +13,7 @@ export async function watch(
 
   // @ts-expect-error: chokidar types are not correct
   watcher.on('all', () => {
-    console.log();
-    logger.info(chalk.blue(message));
+    logger.info(message);
     action();
   });
 

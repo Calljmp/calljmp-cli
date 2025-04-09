@@ -8,6 +8,7 @@ import logger from '../logger';
 import { Database } from '../database';
 import * as server from '../server';
 import { build } from '../build';
+import { readVariables } from '../env';
 
 const reset = () =>
   new Command('reset')
@@ -63,10 +64,12 @@ const pull = () =>
         spinner.fail(chalk.red('Failed to retrieve database schema!'));
       }
 
+      const envs = await readVariables(cfg.project);
+
       const flare = await server.create({
-        projectDirectory: cfg.project,
         script: await build({ entryPoints: cfg.entry }),
         database: cfg.data,
+        bindings: envs,
       });
       try {
         await flare.ready;
