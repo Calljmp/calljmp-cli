@@ -72,7 +72,7 @@ const pull = () =>
         await flare.ready;
         const spinner = ora(chalk.yellow('Synchronizing database...')).start();
         try {
-          const target = await flare.getD1Database('DB');
+          const target = await flare.getD1Database('db');
           await target.batch(statements.map((sql) => target.prepare(sql)));
           spinner.succeed(chalk.green('Database synchronized successfully!'));
         } catch {

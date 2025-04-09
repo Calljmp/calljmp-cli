@@ -27,7 +27,7 @@ export async function create({
     port,
     log,
     d1Persist: database,
-    d1Databases: ['DB'],
+    d1Databases: ['db'],
     bindings: variables,
   });
 }

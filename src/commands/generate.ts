@@ -1,17 +1,18 @@
 import { Command } from 'commander';
 import buildConfig, { ConfigOptions } from '../config';
-import { configureTypes } from '../configure';
+import { configureService } from '../configure';
 
 const generate = () =>
   new Command('generate')
-    .description('Generate types for the project')
+    .description('Generate service code for the project')
     .addOption(ConfigOptions.ProjectDirectory)
+    .option('--no-hono', 'Do not use Hono')
     .action(async (args) => {
       const cfg = await buildConfig(args);
-
-      await configureTypes({
+      await configureService({
         directory: cfg.project,
-        types: cfg.types,
+        service: cfg.service,
+        hono: args.hono,
       });
     });
 

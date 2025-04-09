@@ -91,10 +91,16 @@ calljmp deploy
 
 ### Code generation
 
-Generate TypeScript types for environment variables, database, and resources:
+Generate TypeScript code for environment variables, database, and resources:
 
 ```sh
 calljmp generate
+```
+
+If you do not want to use `Hono` framework and prefer raw fetch handling requests, you can supply `--no-hono` flag:
+
+```sh
+calljmp generate --no-hono
 ```
 
 ### Environemnt variables
@@ -120,18 +126,47 @@ SECRET_ANOTHER_SAFE_TOKEN = "encrypted another secret token"
 Then in code you will have access to:
 
 ```typescript
-import { Hono } from 'hono';
-import { Service } from './service.d';
+import { Service } from './service';
 
-const service = new Hono<Service>();
+const service = Service();
 
 service.get('/', async (c) => {
-  return c.json({
-    one: c.env.SOME_TOKEN,
-    other: c.env.ANOTHER_TOKEN,
-    firstSecret: c.env.TOKEN,
-    secondSecret: c.env.ANOTHER_SAFE_TOKEN,
-  });
+  // Evaluate access control to your service
+  {
+    console.debug(
+      'Access',
+      c.var.trusted,
+      c.var.userId,
+      c.var.platform,
+      c.var.serviceId
+    );
+
+    if (!c.var.trusted) {
+      // Calljmp was not able to confirm the device and app integrity when the service was called.
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    if (!c.var.userId) {
+      // User is not authenticated.
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+  }
+
+  // Access environment variables and secrets
+  {
+    console.debug('Variables', c.env.SOME_KEY, c.env.ANOTHER_KEY);
+    console.debug(
+      'Secrets',
+      c.env.ACTUAL_SECRET_KEY,
+      c.env.COMMON_VERY_SECRET_KEY
+    );
+  }
+
+  // Access database and return query result
+  {
+    const result = await c.env.db.prepare('PRAGMA table_info(users)').run();
+    return c.json({ result });
+  }
 });
 
 export default service;

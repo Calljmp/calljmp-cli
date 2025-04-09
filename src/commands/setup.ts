@@ -3,7 +3,7 @@ import buildConfig, { ConfigOptions, writeConfig } from '../config';
 import {
   configureDependencies,
   configureIgnores,
-  configureTypes,
+  configureService,
 } from '../configure';
 import enquirer from 'enquirer';
 import ora from 'ora';
@@ -16,6 +16,7 @@ import { Project as ProjectData } from '../common';
 const setup = () =>
   new Command('setup')
     .description('Setup environment, account, and project.')
+    .option('--no-hono', 'Do not use Hono')
     .addOption(ConfigOptions.ProjectDirectory)
     .action(async (args) => {
       const cfg = await buildConfig(args);
@@ -70,9 +71,10 @@ const setup = () =>
         entries: ['.calljmp', '.service.env', '.env'],
       });
 
-      await configureTypes({
+      await configureService({
         directory: cfg.project,
-        types: cfg.types,
+        service: cfg.service,
+        hono: args.hono,
       });
     });
 
