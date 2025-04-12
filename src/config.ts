@@ -14,17 +14,21 @@ export interface Config extends PersistentConfig {
   data: string;
   entry: string;
   service: string;
+  migrations: string;
 }
 
 async function buildConfig({
   project = '.',
   module = './src/service',
+  migrations = './src/service/migrations',
 }: {
   project?: string;
   module?: string;
+  migrations?: string;
 }): Promise<Config> {
   const projectDirectory = path.resolve(process.cwd(), project);
   const moduleDirectory = path.resolve(projectDirectory, module);
+  const migrationsDirectory = path.resolve(projectDirectory, migrations);
   const dataDirectory = path.join(projectDirectory, '.calljmp');
   const data = await readConfig(dataDirectory);
 
@@ -34,6 +38,7 @@ async function buildConfig({
     project: projectDirectory,
     module: moduleDirectory,
     data: dataDirectory,
+    migrations: migrationsDirectory,
     entry: path.join(moduleDirectory, 'main.ts'),
     service: path.join(moduleDirectory, 'service.ts'),
   };
@@ -42,7 +47,7 @@ async function buildConfig({
 async function readConfig(dataDirectory: string) {
   const result = await fs
     .readFile(path.join(dataDirectory, 'config.json'), 'utf-8')
-    .then((data) => JSON.parse(data) as PersistentConfig)
+    .then(data => JSON.parse(data) as PersistentConfig)
     .catch(() => null);
   return result;
 }
@@ -70,6 +75,12 @@ export const ConfigOptions = {
   ModuleDirectory: new Option('-m, --module <directory>', 'Module directory')
     .default('./src/service')
     .env('CALLJMP_MODULE'),
+  MigrationsDirectory: new Option(
+    '--mg, --migrations <directory>',
+    'Migrations directory'
+  )
+    .default('./src/service/migrations')
+    .env('CALLJMP_MIGRATIONS'),
 };
 
 export default buildConfig;

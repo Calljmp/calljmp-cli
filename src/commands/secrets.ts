@@ -10,7 +10,7 @@ const listSecrets = () =>
   new Command('list')
     .description('List all secrets')
     .addOption(ConfigOptions.ProjectDirectory)
-    .action(async (args) => {
+    .action(async args => {
       const cfg = await buildConfig(args);
 
       if (!cfg.projectId || !cfg.accessToken) {
@@ -31,7 +31,7 @@ const listSecrets = () =>
           const secrets = await project.listSecrets({
             projectId: cfg.projectId!,
           });
-          spinner.succeed(chalk.green('Fetched secrets successfully.'));
+          spinner.succeed(chalk.green('Fetched secrets.'));
           return secrets;
         } catch {
           spinner.fail(chalk.red('Failed to fetch secrets.'));
@@ -47,10 +47,8 @@ const listSecrets = () =>
         return;
       }
 
-      secrets.forEach((secret) => {
-        logger.info(
-          `  ${chalk.gray(secret.name)}: ${chalk.blue(secret.type || 'string')}`
-        );
+      secrets.forEach(secret => {
+        logger.info(`  ${chalk.gray(secret.name)}}`);
       });
     });
 
@@ -81,9 +79,7 @@ const deleteSecret = () =>
             projectId: cfg.projectId!,
             secretName,
           });
-          spinner.succeed(
-            chalk.green(`Secret ${secretName} deleted successfully.`)
-          );
+          spinner.succeed(chalk.green(`Secret ${secretName} deleted.`));
         } catch {
           spinner.fail(chalk.red(`Failed to delete secret ${secretName}.`));
           process.exit(1);
@@ -103,7 +99,7 @@ const deleteSecret = () =>
           const secrets = await project.listSecrets({
             projectId: cfg.projectId!,
           });
-          spinner.succeed(chalk.green('Fetched secrets successfully.'));
+          spinner.succeed(chalk.green('Fetched secrets.'));
           return secrets;
         } catch {
           spinner.fail(chalk.red('Failed to fetch secrets.'));
@@ -118,7 +114,7 @@ const deleteSecret = () =>
         return;
       }
 
-      const choices = secrets.map((secret) => ({
+      const choices = secrets.map(secret => ({
         name: secret.name,
         value: secret.name,
       }));

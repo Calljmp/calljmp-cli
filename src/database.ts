@@ -9,7 +9,7 @@ export class Database {
     }
   ) {}
 
-  private async _query(sql: string, params: (string | number)[] = []) {
+  async query(sql: string, params: (string | number)[] = []) {
     const response = await fetch(
       `${this._config.baseUrl}/project/${this._config.projectId}/query`,
       {
@@ -36,10 +36,10 @@ export class Database {
   }
 
   async retrieveSchema() {
-    const result = await this._query(
+    const result = await this.query(
       'SELECT sql FROM sqlite_master WHERE name NOT LIKE "sqlite_%" AND name NOT LIKE "_cf_%"'
     );
-    const statements = result.rows.map((row) => row.sql as string);
+    const statements = result.rows.map(row => row.sql as string);
     return statements;
   }
 }

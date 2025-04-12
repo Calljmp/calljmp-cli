@@ -6,13 +6,13 @@ import { readVariables, resolveEnvFiles } from './env';
 import chalk from 'chalk';
 
 export async function create({
-  script,
+  script = '',
   port,
   database,
   log,
   bindings,
 }: {
-  script: string;
+  script?: string;
   port?: number;
   database?: string;
   log?: Log;
@@ -52,17 +52,23 @@ export async function start({
 
   const secrets = Object.entries(envs)
     .filter(([key]) => key.toUpperCase().startsWith('SECRET_'))
-    .reduce((acc, [key, value]) => {
-      acc[key.toUpperCase().replace('SECRET_', '')] = value;
-      return acc;
-    }, {} as Record<string, string>);
+    .reduce(
+      (acc, [key, value]) => {
+        acc[key.toUpperCase().replace('SECRET_', '')] = value;
+        return acc;
+      },
+      {} as Record<string, string>
+    );
 
   const variables = Object.entries(envs)
     .filter(([key]) => !key.toUpperCase().startsWith('SECRET_'))
-    .reduce((acc, [key, value]) => {
-      acc[key.toUpperCase()] = value;
-      return acc;
-    }, {} as Record<string, string>);
+    .reduce(
+      (acc, [key, value]) => {
+        acc[key.toUpperCase()] = value;
+        return acc;
+      },
+      {} as Record<string, string>
+    );
 
   logger.info('Secrets:');
   if (Object.keys(secrets).length > 0) {
@@ -92,7 +98,7 @@ export async function start({
   try {
     await flare.ready;
     logger.info('Press Ctrl+C to stop the server');
-    await new Promise<void>((resolve) => {
+    await new Promise<void>(resolve => {
       if (signal) {
         if (signal.aborted) {
           resolve();
@@ -129,7 +135,7 @@ export async function serve({
       if (abortController) {
         abortController.abort();
         // Give some time for the previous server to shut down
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       abortController = new AbortController();
       const { signal } = abortController;

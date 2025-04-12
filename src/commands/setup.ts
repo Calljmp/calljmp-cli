@@ -12,13 +12,14 @@ import { Account } from '../account';
 import logger from '../logger';
 import { Project } from '../project';
 import { Project as ProjectData } from '../common';
+import fs from 'fs/promises';
 
 const setup = () =>
   new Command('setup')
     .description('Setup environment, account, and project.')
     .option('--no-hono', 'Do not use Hono')
     .addOption(ConfigOptions.ProjectDirectory)
-    .action(async (args) => {
+    .action(async args => {
       const cfg = await buildConfig(args);
 
       const { installDependencies } = await enquirer.prompt<{
@@ -76,6 +77,29 @@ const setup = () =>
         service: cfg.service,
         hono: args.hono,
       });
+
+      // Generate the service code if it doesn't exist
+      const exists = await fs
+        .access(cfg.entry, fs.constants.R_OK)
+        .then(() => true)
+        .catch(() => false);
+      if (!exists) {
+        const content = `
+import { Service } from './service';
+
+const service = Service();
+
+service.get('/hello', async (c) => {
+  return c.json({
+    message: 'Hello, world!',
+  });
+});
+
+export default service;
+        `.trim();
+        await fs.writeFile(cfg.entry, content, 'utf-8');
+        logger.info(chalk.blue(`Created ${cfg.entry}`));
+      }
     });
 
 async function selectProject({
@@ -93,7 +117,7 @@ async function selectProject({
   }
 
   const choices = [
-    ...projects.map((project) => ({
+    ...projects.map(project => ({
       name: project.name,
       value: project.name,
     })),
@@ -123,7 +147,7 @@ async function selectProject({
     });
   }
 
-  const result = projects.find((project) => project.name === selection.value);
+  const result = projects.find(project => project.name === selection.value);
   if (!result) {
     logger.error(chalk.red('Project not found!'));
     return;
@@ -153,7 +177,7 @@ async function login(account: Account) {
     const spinner = ora(chalk.yellow('Waiting for authorization...')).start();
     try {
       const result = await account.pollAccess(requestId);
-      spinner.succeed(chalk.green('Authorized successfully.'));
+      spinner.succeed(chalk.green('Authorized.'));
       return result;
     } catch {
       spinner.fail(chalk.red('Authorization failed!'));

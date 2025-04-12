@@ -1,5 +1,10 @@
 import fetch from 'node-fetch';
-import { jsonToProject, ServiceError, ServiceErrorCode } from './common';
+import {
+  jsonToProject,
+  jsonToServiceSecret,
+  ServiceError,
+  ServiceErrorCode,
+} from './common';
 
 export class Project {
   constructor(
@@ -108,12 +113,9 @@ export class Project {
       throw ServiceError.fromJson(error);
     }
 
-    const result = (await response.json()) as {
-      name: string;
-      type?: string;
-    }[];
+    const result = (await response.json()) as Record<string, any>[];
 
-    return result;
+    return result.map(jsonToServiceSecret);
   }
 
   async deleteSecret({

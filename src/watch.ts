@@ -11,7 +11,6 @@ export async function watch(
     ignoreInitial: true,
   });
 
-  // @ts-expect-error: chokidar types are not correct
   watcher.on('all', () => {
     logger.info(message);
     action();
