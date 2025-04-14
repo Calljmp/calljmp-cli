@@ -4,6 +4,7 @@ import { build } from './build';
 import { watch } from './watch';
 import { readVariables, resolveEnvFiles } from './env';
 import chalk from 'chalk';
+import fs from 'fs/promises';
 
 export async function create({
   script = '',
@@ -24,6 +25,7 @@ export async function create({
     modules: true,
     compatibilityDate: '2024-09-23',
     compatibilityFlags: ['nodejs_compat'],
+    host: '0.0.0.0',
     port,
     log,
     d1Persist: database,
@@ -89,7 +91,10 @@ export async function start({
   }
 
   const flare = await create({
-    bindings: envs,
+    bindings: {
+      ...variables,
+      ...secrets,
+    },
     script,
     port,
     database,
@@ -114,6 +119,67 @@ export async function start({
   }
 }
 
+async function buildWithLocalHandler(module: string) {
+  const tempDir = await fs.mkdtemp('/tmp/calljmp-');
+  try {
+    const entryPoint = `${tempDir}/index.ts`;
+    const content = `
+    import service from '${module}';
+
+    function decodeAccessToken(token: string) {
+      const parts = token.split('.');
+      if (parts.length < 2) {
+        throw new Error(\`Invalid JWT token: \${token}\`);
+      }
+      const base64Payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const decodedPayload = atob(base64Payload);
+      return JSON.parse(decodedPayload) as {
+        userId: number | null;
+        projectId: number;
+        databaseId: string;
+        serviceUuid: string | null;
+      };
+    }
+
+    export default {
+      async fetch(originalRequest, ...opts) {
+        const args = {
+          trusted: true,
+          platform: originalRequest.headers.get('X-Platform'),
+          userId: null,
+          serviceId: null
+        };
+
+        const authorization = originalRequest.headers.get('Authorization');
+        if (authorization) {
+          const token = authorization.replace(/^Bearers+/, '');
+          const { userId, serviceUuid } = decodeAccessToken(token);
+          args.userId = userId;
+          args.serviceId = serviceUuid;
+        }
+
+        const url = new URL(originalRequest.url);
+        const targetUrl = new URL(\`https://app.service.calljmp.com\${url.pathname}\`);
+        
+        const headers = new Headers(originalRequest.headers);
+        headers.set('X-Calljmp-Args', JSON.stringify(args));
+
+        const request = new Request(targetUrl, {
+          ...originalRequest,
+          headers,
+        });
+
+        return service.fetch(request, ...opts);
+      }
+    }
+    `;
+    await fs.writeFile(entryPoint, content);
+    return await build({ entryPoints: entryPoint, debug: true });
+  } finally {
+    await fs.rm(tempDir, { recursive: true });
+  }
+}
+
 export async function serve({
   projectDirectory,
   moduleDirectory,
@@ -123,7 +189,7 @@ export async function serve({
 }: {
   projectDirectory: string;
   moduleDirectory: string;
-  entryPoints: string | string[];
+  entryPoints: string;
   port: number;
   database?: string;
 }) {
@@ -141,7 +207,7 @@ export async function serve({
       const { signal } = abortController;
 
       try {
-        const script = await build({ entryPoints, debug: true });
+        const script = await buildWithLocalHandler(entryPoints);
         await start({
           projectDirectory,
           script,
