@@ -145,7 +145,7 @@ async function buildWithLocalHandler(module: string) {
       async fetch(originalRequest, ...opts) {
         const args = {
           trusted: true,
-          platform: originalRequest.headers.get('X-Platform'),
+          platform: originalRequest.headers.get('X-Calljmp-Platform'),
           userId: null,
           serviceId: null
         };
