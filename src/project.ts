@@ -118,6 +118,37 @@ export class Project {
     return result.map(jsonToServiceSecret);
   }
 
+  async addSecret({
+    projectId,
+    secretName,
+    secretValue,
+  }: {
+    projectId: number;
+    secretName: string;
+    secretValue: string;
+  }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}/service/secrets/${secretName}`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          value: secretValue,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+  }
+
   async deleteSecret({
     projectId,
     secretName,
