@@ -95,7 +95,7 @@ export class Account {
       if (!response.ok) {
         if (response.status === 404) {
           // Not found means the token is not ready yet
-          await new Promise((resolve) => setTimeout(resolve, interval * 1000));
+          await new Promise(resolve => setTimeout(resolve, interval * 1000));
           continue;
         }
         throw new Error(`Failed to check access: ${response.statusText}`);

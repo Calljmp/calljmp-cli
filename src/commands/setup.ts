@@ -1,10 +1,6 @@
 import { Command } from 'commander';
 import buildConfig, { ConfigOptions, writeConfig } from '../config';
-import {
-  configureDependencies,
-  configureIgnores,
-  configureService,
-} from '../configure';
+import { configureIgnores, configureService } from '../configure';
 import enquirer from 'enquirer';
 import ora from 'ora';
 import chalk from 'chalk';
@@ -12,30 +8,13 @@ import { Account } from '../account';
 import logger from '../logger';
 import { Project } from '../project';
 import { Project as ProjectData } from '../common';
-import fs from 'fs/promises';
 
 const setup = () =>
   new Command('setup')
     .description('Setup environment, account, and project.')
-    .option('--no-hono', 'Do not use Hono')
     .addOption(ConfigOptions.ProjectDirectory)
     .action(async args => {
       const cfg = await buildConfig(args);
-
-      const { installDependencies } = await enquirer.prompt<{
-        installDependencies: boolean;
-      }>({
-        type: 'confirm',
-        name: 'installDependencies',
-        message: 'Install dependencies?',
-        initial: true,
-      });
-
-      if (installDependencies) {
-        await configureDependencies({
-          directory: cfg.project,
-        });
-      }
 
       const account = new Account(cfg);
       const authorized = await account.authorized();
@@ -58,9 +37,12 @@ const setup = () =>
         accessToken: cfg.accessToken,
       });
 
-      const selectedProject = await selectProject({ project });
+      let selectedProject = await selectProject({ project });
       if (!selectedProject) {
-        process.exit(1);
+        selectedProject = await createProject({ project });
+        if (!selectedProject) {
+          process.exit(1);
+        }
       }
       if (cfg.projectId !== selectedProject.id) {
         cfg.projectId = selectedProject.id;
@@ -75,32 +57,53 @@ const setup = () =>
       await configureService({
         directory: cfg.project,
         service: cfg.service,
-        hono: args.hono,
+        entry: cfg.entry,
+        types: cfg.types,
       });
-
-      // Generate the service code if it doesn't exist
-      const exists = await fs
-        .access(cfg.entry, fs.constants.R_OK)
-        .then(() => true)
-        .catch(() => false);
-      if (!exists) {
-        const content = `
-import { Service } from './service';
-
-const service = Service();
-
-service.get('/hello', async (c) => {
-  return c.json({
-    message: 'Hello, world!',
-  });
-});
-
-export default service;
-        `.trim();
-        await fs.writeFile(cfg.entry, content, 'utf-8');
-        logger.info(chalk.blue(`Created ${cfg.entry}`));
-      }
     });
+
+async function createProject({ project }: { project: Project }) {
+  logger.info(chalk.blue('Creating new project...'));
+
+  const { name, description } = await enquirer.prompt<{
+    name: string;
+    description?: string;
+  }>([
+    {
+      type: 'input',
+      name: 'name',
+      message: 'Project name',
+      required: true,
+      validate: (value: string) => {
+        if (!value) {
+          return 'Project name is required';
+        }
+        if (!/^[a-z-]+$/.test(value)) {
+          return 'Only lowercase letters and hyphens are allowed';
+        }
+        return true;
+      },
+    },
+    {
+      type: 'input',
+      name: 'description',
+      message: 'Project description (optional)',
+    },
+  ]);
+
+  const spinner = ora(chalk.yellow('Creating project...')).start();
+  try {
+    const result = await project.create({
+      name,
+      description: description || undefined,
+    });
+    spinner.succeed(chalk.green('Project created.'));
+    return result;
+  } catch (error) {
+    spinner.fail(chalk.red('Failed to create project!'));
+    throw error;
+  }
+}
 
 async function selectProject({
   project,
@@ -165,7 +168,7 @@ async function login(account: Account) {
       const { requestId: id, authorizationUrl } = await account.requestAccess();
       requestId = id;
       spinner.succeed(chalk.green('Authorization requested.'));
-      logger.info('Open the following URL to authorize:');
+      logger.info('Open the following URL to authorize CLI:');
       logger.info(chalk.blue(authorizationUrl));
     } catch {
       spinner.fail(chalk.red('Failed to request authorization!'));

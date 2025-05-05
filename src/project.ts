@@ -54,6 +54,31 @@ export class Project {
     };
   }
 
+  async create({ name, description }: { name: string; description?: string }) {
+    const response = await fetch(`${this._config.baseUrl}/project`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this._config.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name,
+        description,
+      }),
+    });
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+
+    const result = (await response.json()) as Record<string, any>;
+
+    return jsonToProject(result);
+  }
+
   async deployService({
     projectId,
     script,

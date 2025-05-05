@@ -6,13 +6,13 @@ const generate = () =>
   new Command('generate')
     .description('Generate service code for the project')
     .addOption(ConfigOptions.ProjectDirectory)
-    .option('--no-hono', 'Do not use Hono')
-    .action(async (args) => {
+    .action(async args => {
       const cfg = await buildConfig(args);
       await configureService({
         directory: cfg.project,
         service: cfg.service,
-        hono: args.hono,
+        types: cfg.types,
+        entry: cfg.entry,
       });
     });
 
