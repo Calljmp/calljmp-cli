@@ -109,11 +109,15 @@ const pull = () =>
               chalk.green(`Table data for ${entry.label} retrieved.`)
             );
           } catch (error) {
-            spinner.fail(
-              chalk.red(`Failed to retrieve table data for ${entry.label}!`)
-            );
-            logger.error(error);
-            process.exit(1);
+            if (entry.label === 'migrations') {
+              spinner.warn('Skipping migrations table data retrieval.');
+            } else {
+              spinner.fail(
+                chalk.red(`Failed to retrieve table data for ${entry.label}!`)
+              );
+              logger.error(error);
+              process.exit(1);
+            }
           }
         }
       }

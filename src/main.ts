@@ -5,7 +5,7 @@ import start from './commands/start';
 import database from './commands/database';
 import setup from './commands/setup';
 import { version } from './version';
-import deploy from './commands/deploy';
+import service from './commands/service';
 import generate from './commands/generate';
 import secrets from './commands/secrets';
 
@@ -32,14 +32,14 @@ async function main() {
     .addCommand(setup())
     .addCommand(start())
     .addCommand(database())
-    .addCommand(deploy())
+    .addCommand(service())
     .addCommand(generate())
     .addCommand(secrets());
 
   program.parse(process.argv);
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error(error);
   process.exit(1);
 });

@@ -126,6 +126,18 @@
         }
       }
     },
+    "run:remote": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build:development"
+      ],
+      "options": {
+        "commands": [
+          "node dist/apps/cli/main.js"
+        ],
+        "parallel": false
+      }
+    },
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {

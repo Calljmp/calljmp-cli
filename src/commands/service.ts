@@ -11,7 +11,7 @@ const deploy = () =>
   new Command('deploy')
     .description('Deploy the application')
     .addOption(ConfigOptions.ProjectDirectory)
-    .action(async (args) => {
+    .action(async args => {
       const cfg = await buildConfig(args);
 
       if (!cfg.projectId || !cfg.accessToken) {
@@ -25,17 +25,23 @@ const deploy = () =>
 
       const secrets = Object.entries(envs)
         .filter(([key]) => key.toUpperCase().startsWith('SECRET_'))
-        .reduce((acc, [key, value]) => {
-          acc[key.toUpperCase().replace('SECRET_', '')] = value;
-          return acc;
-        }, {} as Record<string, string>);
+        .reduce(
+          (acc, [key, value]) => {
+            acc[key.toUpperCase().replace('SECRET_', '')] = value;
+            return acc;
+          },
+          {} as Record<string, string>
+        );
 
       const variables = Object.entries(envs)
         .filter(([key]) => !key.toUpperCase().startsWith('SECRET_'))
-        .reduce((acc, [key, value]) => {
-          acc[key.toUpperCase()] = value;
-          return acc;
-        }, {} as Record<string, string>);
+        .reduce(
+          (acc, [key, value]) => {
+            acc[key.toUpperCase()] = value;
+            return acc;
+          },
+          {} as Record<string, string>
+        );
 
       logger.info('Secrets:');
       if (Object.keys(secrets).length > 0) {
@@ -80,18 +86,17 @@ const deploy = () =>
       {
         const spinner = ora('Deploying service...').start();
         try {
-          const { uuid } = await project.deployService({
+          await project.deployService({
             projectId: cfg.projectId,
             script,
             secrets,
             variables,
           });
           spinner.succeed('Deployment completed');
-          logger.info(`Service deployed with UUID: ${chalk.blue(uuid)}`);
           logger.info(
             `Access your service at: ${chalk.blue(
               cfg.baseUrl
-            )}/target/v1/service/${uuid}`
+            )}/target/v1/service`
           );
         } catch (e: any) {
           spinner.fail('Deployment failed');
@@ -103,4 +108,42 @@ const deploy = () =>
       }
     });
 
-export default deploy;
+const access = () =>
+  new Command('access')
+    .description('Get access token for the service')
+    .addOption(ConfigOptions.ProjectDirectory)
+    .action(async args => {
+      const cfg = await buildConfig(args);
+      if (!cfg.projectId || !cfg.accessToken) {
+        logger.error(
+          chalk.red('Project is not linked. Please run `setup` command first.')
+        );
+        process.exit(1);
+      }
+      const project = new Project({
+        baseUrl: cfg.baseUrl,
+        accessToken: cfg.accessToken,
+      });
+
+      const spinner = ora('Accessing service...').start();
+      try {
+        const { accessToken } = await project.accessTarget({
+          projectId: cfg.projectId,
+        });
+        logger.info(`Access token: ${chalk.blue(accessToken)}`);
+      } catch (e: any) {
+        spinner.fail('Access failed');
+        logger.error(e);
+        process.exit(1);
+      } finally {
+        spinner.stop();
+      }
+    });
+
+const service = () =>
+  new Command('service')
+    .description('Deploy a service')
+    .addCommand(deploy())
+    .addCommand(access());
+
+export default service;

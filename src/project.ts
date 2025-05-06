@@ -14,6 +14,29 @@ export class Project {
     }
   ) {}
 
+  async accessTarget({ projectId }: { projectId: number }) {
+    const response = await fetch(`${this._config.baseUrl}/cli/access/target`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this._config.accessToken}`,
+      },
+      body: JSON.stringify({ projectId }),
+    });
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+
+    const result = (await response.json()) as {
+      accessToken: string;
+    };
+
+    return result;
+  }
+
   async list({
     offset,
     limit,
