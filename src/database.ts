@@ -11,7 +11,7 @@ export class Database {
 
   async query(sql: string, params: (string | number)[] = []) {
     const response = await fetch(
-      `${this._config.baseUrl}/project/${this._config.projectId}/query`,
+      `${this._config.baseUrl}/project/${this._config.projectId}/database/query`,
       {
         method: 'POST',
         headers: {

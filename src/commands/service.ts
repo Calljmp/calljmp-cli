@@ -130,6 +130,7 @@ const access = () =>
         const { accessToken } = await project.accessTarget({
           projectId: cfg.projectId,
         });
+        spinner.stop();
         logger.info(`Access token: ${chalk.blue(accessToken)}`);
       } catch (e: any) {
         spinner.fail('Access failed');

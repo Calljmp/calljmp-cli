@@ -12,6 +12,7 @@ import * as server from '../server';
 import { build } from '../build';
 import { readVariables } from '../env';
 import splitSqlQuery from '../sql';
+import schema from './schema';
 
 const reset = () =>
   new Command('reset')
@@ -159,29 +160,7 @@ const migrate = () =>
     .option('--remote', 'Migrate the database to the remote server')
     .action(async args => {
       const cfg = await buildConfig(args);
-
-      const filePattern = /^(\d+)[-_]([a-zA-Z0-9-_]+)\.sql$/;
-
-      const files: MigrationFile[] = await fs
-        .readdir(cfg.migrations)
-        .catch<string[]>(() => [])
-        .then(files =>
-          files
-            .map(file => {
-              const match = file.match(filePattern);
-              if (!match) {
-                return null;
-              }
-              return {
-                file: path.join(cfg.migrations, file),
-                version: parseInt(match[1], 10),
-                name: match[2],
-              };
-            })
-            .filter(file => file !== null)
-        );
-
-      files.sort((a, b) => a.version - b.version);
+      const files = await collectMigrations(cfg);
 
       if (files.length === 0) {
         logger.warn(
@@ -200,6 +179,30 @@ const migrate = () =>
     });
 
 const migrationsTable = '_calljmp_migrations';
+
+async function collectMigrations(cfg: Config) {
+  const filePattern = /^(\d+)[-_]([a-zA-Z0-9-_]+)\.sql$/;
+  const files: MigrationFile[] = await fs
+    .readdir(cfg.migrations)
+    .catch<string[]>(() => [])
+    .then(files =>
+      files
+        .map(file => {
+          const match = file.match(filePattern);
+          if (!match) {
+            return null;
+          }
+          return {
+            file: path.join(cfg.migrations, file),
+            version: parseInt(match[1], 10),
+            name: match[2],
+          };
+        })
+        .filter(file => file !== null)
+    );
+  files.sort((a, b) => a.version - b.version);
+  return files;
+}
 
 async function migrateRemote(cfg: Config, files: MigrationFile[]) {
   if (!cfg.accessToken || !cfg.projectId) {
@@ -479,6 +482,7 @@ function dataToInsertStatements(
 const database = () =>
   new Command('database')
     .description('Configure the database')
+    .addCommand(schema())
     .addCommand(migrate())
     .addCommand(reset())
     .addCommand(pull());

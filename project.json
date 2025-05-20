@@ -5,6 +5,20 @@
   "projectType": "application",
   "tags": [],
   "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run --dir ./src",
+        "cwd": "apps/cli"
+      }
+    },
+    "test-watch": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest watch --dir ./src",
+        "cwd": "apps/cli"
+      }
+    },
     "common:sync": {
       "executor": "nx:run-commands",
       "options": {

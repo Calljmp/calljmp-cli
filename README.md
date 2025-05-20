@@ -97,12 +97,6 @@ Generate TypeScript code for environment variables, database, and resources:
 calljmp generate
 ```
 
-If you do not want to use `Hono` framework and prefer raw fetch handling requests, you can supply `--no-hono` flag:
-
-```sh
-calljmp generate --no-hono
-```
-
 ### Environment variables
 
 You can set environment variables in the `.env` file with `CALLJMP_` prefix or without prefix in `.service.env`. In order to protect a value upon deployment and access outside of the service scope prepend key with `SECRET_` prefix. The CLI will automatically load them when you run the commands.
@@ -130,7 +124,7 @@ import { Service } from './service';
 
 const service = Service();
 
-service.get('/', async (c) => {
+service.get('/', async c => {
   // Evaluate access control to your service
   {
     console.debug(

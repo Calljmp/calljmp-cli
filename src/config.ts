@@ -16,20 +16,24 @@ export interface Config extends PersistentConfig {
   service: string;
   types: string;
   migrations: string;
+  schema: string;
 }
 
 async function buildConfig({
   project = '.',
   module = './src/service',
   migrations = './src/service/migrations',
+  schema = './src/service/schema',
 }: {
   project?: string;
   module?: string;
   migrations?: string;
+  schema?: string;
 }): Promise<Config> {
   const projectDirectory = path.resolve(process.cwd(), project);
   const moduleDirectory = path.resolve(projectDirectory, module);
   const migrationsDirectory = path.resolve(projectDirectory, migrations);
+  const schemaDirectory = path.resolve(projectDirectory, schema);
   const dataDirectory = path.join(projectDirectory, '.calljmp');
   const data = await readConfig(dataDirectory);
 
@@ -40,6 +44,7 @@ async function buildConfig({
     module: moduleDirectory,
     data: dataDirectory,
     migrations: migrationsDirectory,
+    schema: schemaDirectory,
     entry: path.join(moduleDirectory, 'main.ts'),
     service: path.join(moduleDirectory, 'service.ts'),
     types: path.join(moduleDirectory, 'service-types.d.ts'),
@@ -83,6 +88,9 @@ export const ConfigOptions = {
   )
     .default('./src/service/migrations')
     .env('CALLJMP_MIGRATIONS'),
+  SchemaDirectory: new Option('--s, --schema <directory>', 'Schema directory')
+    .default('./src/service/schema')
+    .env('CALLJMP_SCHEMA'),
 };
 
 export default buildConfig;
