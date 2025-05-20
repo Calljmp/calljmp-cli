@@ -294,7 +294,7 @@ async function runSqlMigrations(
   logger.info(
     chalk.dim(
       '┌' +
-        '─'.repeat(10) +
+        '─'.repeat(18) +
         '┬' +
         '─'.repeat(32) +
         '┬' +
@@ -306,7 +306,7 @@ async function runSqlMigrations(
   );
   logger.info(
     chalk.dim('│ ') +
-      chalk.bold('Version'.padEnd(8)) +
+      chalk.bold('Version'.padEnd(16)) +
       chalk.dim(' │ ') +
       chalk.bold('Name'.padEnd(30)) +
       chalk.dim(' │ ') +
@@ -318,7 +318,7 @@ async function runSqlMigrations(
   logger.info(
     chalk.dim(
       '├' +
-        '─'.repeat(10) +
+        '─'.repeat(18) +
         '┼' +
         '─'.repeat(32) +
         '┼' +
@@ -337,7 +337,7 @@ async function runSqlMigrations(
 
     logger.info(
       chalk.dim('│ ') +
-        String(migration.version).padEnd(8) +
+        String(migration.version).padEnd(16) +
         chalk.dim(' │ ') +
         migration.name.padEnd(30) +
         chalk.dim(' │ ') +
@@ -354,7 +354,7 @@ async function runSqlMigrations(
   logger.info(
     chalk.dim(
       '└' +
-        '─'.repeat(10) +
+        '─'.repeat(18) +
         '┴' +
         '─'.repeat(32) +
         '┴' +

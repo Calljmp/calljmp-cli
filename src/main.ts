@@ -6,7 +6,6 @@ import database from './commands/database';
 import setup from './commands/setup';
 import { version } from './version';
 import service from './commands/service';
-import generate from './commands/generate';
 import secrets from './commands/secrets';
 
 async function main() {
@@ -33,7 +32,6 @@ async function main() {
     .addCommand(start())
     .addCommand(database())
     .addCommand(service())
-    .addCommand(generate())
     .addCommand(secrets());
 
   program.parse(process.argv);

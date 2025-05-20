@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import { Project } from '../project';
 import { build } from '../build';
 import ora from 'ora';
+import { configureService } from '../configure';
 
 const deploy = () =>
   new Command('deploy')
@@ -141,10 +142,25 @@ const access = () =>
       }
     });
 
+const generate = () =>
+  new Command('generate')
+    .description('Generate service code for the project')
+    .addOption(ConfigOptions.ProjectDirectory)
+    .action(async args => {
+      const cfg = await buildConfig(args);
+      await configureService({
+        directory: cfg.project,
+        service: cfg.service,
+        types: cfg.types,
+        entry: cfg.entry,
+      });
+    });
+
 const service = () =>
   new Command('service')
     .description('Deploy a service')
     .addCommand(deploy())
-    .addCommand(access());
+    .addCommand(access())
+    .addCommand(generate());
 
 export default service;
