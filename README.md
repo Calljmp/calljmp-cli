@@ -69,10 +69,10 @@ calljmp start --persist-database
 
 ### 3️⃣ Managing database
 
-Synchronize the database schema from your cloud project to local database:
+Manage your SQLite schema and generate migrations:
 
 ```sh
-calljmp database pull
+calljmp database schema
 ```
 
 You can reset the local database to its initial state with:
@@ -81,12 +81,24 @@ You can reset the local database to its initial state with:
 calljmp database reset
 ```
 
+Pull the database schema and data from your cloud project to local database:
+
+```sh
+calljmp database pull
+```
+
+Apply migrations to the cloud database and local database:
+
+```sh
+calljmp database migrate
+```
+
 ### 4️⃣ Deploy to Calljmp
 
 Deploy your local changes to the cloud:
 
 ```sh
-calljmp deploy
+calljmp service deploy
 ```
 
 ### Code generation
@@ -94,7 +106,7 @@ calljmp deploy
 Generate TypeScript code for environment variables, database, and resources:
 
 ```sh
-calljmp generate
+calljmp service generate
 ```
 
 ### Environment variables

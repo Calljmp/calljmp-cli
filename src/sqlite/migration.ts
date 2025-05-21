@@ -1,11 +1,25 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 
+export interface DatabaseDriver {
+  exec: (sql: string) => Promise<void>;
+  all: <T = any[]>(sql: string, ...params: any[]) => Promise<T>;
+}
+
 export class SqliteMigration {
   private _numberOfChanges = 0;
   private _executedStatements: string[] = [];
+  private _mitigageForeignKey = false;
 
-  constructor(private _db: Database) {}
+  static async create(db?: DatabaseDriver): Promise<SqliteMigration> {
+    const _db =
+      db || (await open({ filename: ':memory:', driver: sqlite3.Database }));
+    return new SqliteMigration(_db);
+  }
+
+  private constructor(private _db: DatabaseDriver) {
+    this._db = _db;
+  }
 
   get numberOfChanges(): number {
     return this._numberOfChanges;
@@ -15,6 +29,12 @@ export class SqliteMigration {
     return [...this._executedStatements];
   }
 
+  clear() {
+    this._mitigageForeignKey = false;
+    this._numberOfChanges = 0;
+    this._executedStatements = [];
+  }
+
   async migrate(schema: string) {
     const pristine = await open({
       filename: ':memory:',
@@ -22,7 +42,7 @@ export class SqliteMigration {
     });
     await pristine.exec(schema);
 
-    await this._exec('PRAGMA foreign_keys = OFF', false);
+    await this._db.exec('PRAGMA foreign_keys = OFF');
     // await this._db.exec('BEGIN');
     try {
       // await this._db.exec('PRAGMA defer_foreign_keys = TRUE');
@@ -32,22 +52,29 @@ export class SqliteMigration {
       await this._migrateTriggers(pristine);
       await this._migrateViews(pristine);
 
-      await this._migratePragma(pristine, 'user_version');
       const [fkRes] = await pristine.all('PRAGMA foreign_keys');
       if (fkRes?.foreign_keys) {
         const fkViolations = await this._db.all('PRAGMA foreign_key_check');
         if (fkViolations.length) throw new Error('Foreign key check failed');
       }
 
+      if (this._mitigageForeignKey) {
+        this._executedStatements = [
+          'PRAGMA foreign_keys = OFF',
+          ...this._executedStatements,
+          'PRAGMA foreign_keys = ON',
+        ];
+      }
+
       // await this._db.exec('COMMIT');
-      await this._exec('PRAGMA foreign_keys = ON', false);
+      await this._db.exec('PRAGMA foreign_keys = ON');
 
       // if (this._numberOfChanges > 0) {
       //   await this._db.exec('VACUUM');
       // }
     } catch (error) {
       // await this._db.exec('ROLLBACK');
-      await this._exec('PRAGMA foreign_keys = ON', false);
+      await this._db.exec('PRAGMA foreign_keys = ON');
       throw error;
     }
   }
@@ -97,6 +124,10 @@ export class SqliteMigration {
           normalizeSql(pristineTables.get(k)!) !==
           normalizeSql(tables.get(k) || '')
       );
+
+    if (modifiedTables.length) {
+      this._mitigageForeignKey = true;
+    }
 
     for (const tbl of newTables) {
       await this._exec(pristineTables.get(tbl)!);
@@ -182,16 +213,14 @@ export class SqliteMigration {
     }
   }
 
-  private async _exec(sql: string, change = true) {
+  private async _exec(sql: string) {
     await this._db.exec(sql);
     this._executedStatements.push(sql);
-    if (change) {
-      this._numberOfChanges++;
-    }
+    this._numberOfChanges++;
   }
 
   private async _objects(
-    db: Database,
+    db: DatabaseDriver,
     type: 'table' | 'index' | 'trigger' | 'view'
   ): Promise<Map<string, string>> {
     const sql =
@@ -205,36 +234,25 @@ export class SqliteMigration {
     return new Map(rows.map(r => [r.name, r.sql]));
   }
 
-  private async _tables(db: Database): Promise<Map<string, string>> {
+  private async _tables(db: DatabaseDriver): Promise<Map<string, string>> {
     return this._objects(db, 'table');
   }
 
-  private async _indexes(db: Database): Promise<Map<string, string>> {
+  private async _indexes(db: DatabaseDriver): Promise<Map<string, string>> {
     return this._objects(db, 'index');
   }
 
-  private async _triggers(db: Database): Promise<Map<string, string>> {
+  private async _triggers(db: DatabaseDriver): Promise<Map<string, string>> {
     return this._objects(db, 'trigger');
   }
 
-  private async _views(db: Database): Promise<Map<string, string>> {
+  private async _views(db: DatabaseDriver): Promise<Map<string, string>> {
     return this._objects(db, 'view');
   }
 
-  private async _columns(db: Database, table: string): Promise<string[]> {
+  private async _columns(db: DatabaseDriver, table: string): Promise<string[]> {
     const rows = await db.all(`PRAGMA table_info(${table})`);
     return rows.map((r: any) => r.name);
-  }
-
-  private async _migratePragma(
-    pristine: Database,
-    pragma: string
-  ): Promise<void> {
-    const [pVal] = await pristine.all(`PRAGMA ${pragma}`);
-    const [cVal] = await this._db.all(`PRAGMA ${pragma}`);
-    if (pVal?.[pragma] !== cVal?.[pragma]) {
-      await this._exec(`PRAGMA ${pragma} = ${pVal?.[pragma]}`);
-    }
   }
 }
 
