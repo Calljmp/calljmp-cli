@@ -22,7 +22,7 @@ const deploy = () =>
         process.exit(1);
       }
 
-      const envs = await readVariables(cfg.project);
+      const envs = await readVariables(cfg.project, 'production');
 
       const secrets = Object.entries(envs)
         .filter(([key]) => key.toUpperCase().startsWith('SECRET_'))

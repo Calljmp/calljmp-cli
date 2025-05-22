@@ -85,7 +85,7 @@ export async function configureService({
   entry: string;
   types: string;
 }) {
-  const envs = Object.keys(await readVariables(directory));
+  const envs = Object.keys(await readVariables(directory, 'production'));
 
   const variables = envs.filter(
     key => !key.toUpperCase().startsWith('SECRET_')

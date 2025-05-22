@@ -26,8 +26,8 @@ function readEnvEntry(entry: string) {
   return { key, value };
 }
 
-export async function readEnv(file: string) {
-  return fs
+export async function readEnv(files: string | string[]) {
+  const readEnv = (file: string) => fs
     .readFile(file, 'utf-8')
     .catch(() => {
       // If the file doesn't exist, return an empty object
@@ -43,13 +43,21 @@ export async function readEnv(file: string) {
       // Parse the lines into key-value pairs
       return lines.map((line) => readEnvEntry(line));
     });
+
+  const entries = await Promise.all([files].flat().map(readEnv));
+  return entries.flat();
 }
 
-export function resolveEnvFiles(directory: string) {
-  return [path.join(directory, '.env'), path.join(directory, '.service.env')];
+export function resolveEnvFiles(directory: string, environment: 'development' | 'production') {
+  return [
+    path.join(directory, '.env'),
+    path.join(directory, `.env.${environment}`),
+    path.join(directory, '.service.env'),
+    path.join(directory, `.service.env.${environment}`),
+  ];
 }
 
-export async function readVariables(directory: string) {
+export async function readVariables(directory: string, environment: 'development' | 'production') {
   const variables: Record<string, string> = {};
 
   const put = (key: string, value: string) => {
@@ -60,14 +68,20 @@ export async function readVariables(directory: string) {
   };
 
   // Read the .env file with CALLJMP_ prefix
-  for (const entry of await readEnv(path.join(directory, '.env'))) {
+  for (const entry of await readEnv([
+    path.join(directory, '.env'),
+    path.join(directory, `.env.${environment}`),
+  ])) {
     if (entry.key.startsWith('CALLJMP_')) {
       put(entry.key.replace('CALLJMP_', ''), entry.value);
     }
   }
 
   // Read the .service.env
-  for (const entry of await readEnv(path.join(directory, '.service.env'))) {
+  for (const entry of await readEnv([
+    path.join(directory, '.service.env'),
+    path.join(directory, `.service.env.${environment}`),
+  ])) {
     put(entry.key, entry.value);
   }
 

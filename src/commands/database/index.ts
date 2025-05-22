@@ -7,7 +7,6 @@ import path from 'path';
 import logger from '../../logger';
 import * as server from '../../server';
 import { build } from '../../build';
-import { readVariables } from '../../env';
 import schema from './schema';
 import { Database } from '../../database';
 import {
@@ -93,15 +92,15 @@ const pull = () =>
           table: string;
           label: string;
         }[] = [
-          {
-            table: args.migrationsTable,
-            label: 'migrations',
-          },
-          ...args.tableData.map((table: string) => ({
-            table,
-            label: table,
-          })),
-        ];
+            {
+              table: args.migrationsTable,
+              label: 'migrations',
+            },
+            ...args.tableData.map((table: string) => ({
+              table,
+              label: table,
+            })),
+          ];
 
         for (const entry of entries) {
           const spinner = ora(
@@ -131,12 +130,9 @@ const pull = () =>
         }
       }
 
-      const envs = await readVariables(cfg.project);
-
       const flare = await server.create({
         script: await build({ entryPoints: cfg.entry, debug: true }),
         database: cfg.data,
-        bindings: envs,
       });
       try {
         await flare.ready;

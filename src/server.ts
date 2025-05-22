@@ -50,7 +50,7 @@ export async function start({
   signal?: AbortSignal;
   database?: string;
 }) {
-  const envs = await readVariables(projectDirectory);
+  const envs = await readVariables(projectDirectory, 'development');
 
   const secrets = Object.entries(envs)
     .filter(([key]) => key.toUpperCase().startsWith('SECRET_'))
@@ -194,7 +194,7 @@ export async function serve({
 }) {
   let abortController: AbortController | null = null;
   await watch(
-    [moduleDirectory, ...resolveEnvFiles(projectDirectory)],
+    [moduleDirectory, ...resolveEnvFiles(projectDirectory, 'development')],
     chalk.yellow('Detected changes, restarting...'),
     async () => {
       if (abortController) {
