@@ -42,10 +42,10 @@ export class SqliteMigration {
     });
     await pristine.exec(schema);
 
-    await this._db.exec('PRAGMA foreign_keys = OFF');
-    // await this._db.exec('BEGIN');
+    await this._db.exec('PRAGMA foreign_keys = off');
+    await this._db.exec('BEGIN');
     try {
-      // await this._db.exec('PRAGMA defer_foreign_keys = TRUE');
+      await this._db.exec('PRAGMA defer_foreign_keys = on');
 
       await this._migrateTables(pristine);
       await this._migrateIndexes(pristine);
@@ -60,21 +60,18 @@ export class SqliteMigration {
 
       if (this._mitigageForeignKey) {
         this._executedStatements = [
-          'PRAGMA foreign_keys = OFF',
+          'PRAGMA defer_foreign_keys = on',
           ...this._executedStatements,
-          'PRAGMA foreign_keys = ON',
+          'PRAGMA defer_foreign_keys = off',
         ];
       }
 
-      // await this._db.exec('COMMIT');
-      await this._db.exec('PRAGMA foreign_keys = ON');
-
-      // if (this._numberOfChanges > 0) {
-      //   await this._db.exec('VACUUM');
-      // }
+      await this._db.exec('PRAGMA defer_foreign_keys = off');
+      await this._db.exec('COMMIT');
+      await this._db.exec('PRAGMA foreign_keys = on');
     } catch (error) {
-      // await this._db.exec('ROLLBACK');
-      await this._db.exec('PRAGMA foreign_keys = ON');
+      await this._db.exec('ROLLBACK');
+      await this._db.exec('PRAGMA foreign_keys = on');
       throw error;
     }
   }

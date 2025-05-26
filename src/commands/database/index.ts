@@ -92,15 +92,15 @@ const pull = () =>
           table: string;
           label: string;
         }[] = [
-            {
-              table: args.migrationsTable,
-              label: 'migrations',
-            },
-            ...args.tableData.map((table: string) => ({
-              table,
-              label: table,
-            })),
-          ];
+          {
+            table: args.migrationsTable,
+            label: 'migrations',
+          },
+          ...args.tableData.map((table: string) => ({
+            table,
+            label: table,
+          })),
+        ];
 
         for (const entry of entries) {
           const spinner = ora(

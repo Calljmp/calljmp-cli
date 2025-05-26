@@ -27,28 +27,32 @@ function readEnvEntry(entry: string) {
 }
 
 export async function readEnv(files: string | string[]) {
-  const readEnv = (file: string) => fs
-    .readFile(file, 'utf-8')
-    .catch(() => {
-      // If the file doesn't exist, return an empty object
-      return '';
-    })
-    .then((content) => {
-      // Remove any comments and empty lines
-      return content
-        .split('\n')
-        .filter((line) => line.trim() && !line.trim().startsWith('#'));
-    })
-    .then((lines) => {
-      // Parse the lines into key-value pairs
-      return lines.map((line) => readEnvEntry(line));
-    });
+  const readEnv = (file: string) =>
+    fs
+      .readFile(file, 'utf-8')
+      .catch(() => {
+        // If the file doesn't exist, return an empty object
+        return '';
+      })
+      .then(content => {
+        // Remove any comments and empty lines
+        return content
+          .split('\n')
+          .filter(line => line.trim() && !line.trim().startsWith('#'));
+      })
+      .then(lines => {
+        // Parse the lines into key-value pairs
+        return lines.map(line => readEnvEntry(line));
+      });
 
   const entries = await Promise.all([files].flat().map(readEnv));
   return entries.flat();
 }
 
-export function resolveEnvFiles(directory: string, environment: 'development' | 'production') {
+export function resolveEnvFiles(
+  directory: string,
+  environment: 'development' | 'production'
+) {
   return [
     path.join(directory, '.env'),
     path.join(directory, `.env.${environment}`),
@@ -57,7 +61,10 @@ export function resolveEnvFiles(directory: string, environment: 'development' | 
   ];
 }
 
-export async function readVariables(directory: string, environment: 'development' | 'production') {
+export async function readVariables(
+  directory: string,
+  environment: 'development' | 'production'
+) {
   const variables: Record<string, string> = {};
 
   const put = (key: string, value: string) => {

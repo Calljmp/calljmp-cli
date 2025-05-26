@@ -72,15 +72,51 @@ export async function migrateRemote(
     );
 
   const executeQueries = async (queries: string[]) => {
-    for (const query of queries) {
-      await database.query(query);
+    const sql = queries
+      .map(query => (query.trim().endsWith(';') ? query : query + ';'))
+      .join('\n');
+    const etag = crypto.createHash('md5').update(sql).digest('hex');
+    const migrationInfo = await database.migrate({ etag });
+
+    let state: {
+      completed: boolean;
+      bookmark?: string;
+    } = migrationInfo;
+
+    if (
+      !migrationInfo.completed &&
+      migrationInfo.uploadUrl &&
+      migrationInfo.filename
+    ) {
+      state = await database.ingest({
+        etag,
+        file: new Blob([sql], { type: 'text/plain' }),
+        filename: migrationInfo.filename,
+        uploadUrl: migrationInfo.uploadUrl,
+      });
+    }
+
+    while (!state.completed) {
+      if (!state.bookmark) {
+        throw new Error(
+          'Migration bookmark is missing. Please check the migration status.'
+        );
+      }
+      const result = await database.migrationStatus({
+        bookmark: state.bookmark,
+      });
+      state.completed = result.completed;
     }
   };
 
   logger.info(
-    chalk.blue('You are about to apply migrations to the remote database.')
+    chalk.yellow(
+      'WARNING: You are about to apply migrations to the remote database.'
+    )
   );
-  logger.info(chalk.blue('This operation may modify the production database.'));
+  logger.info(
+    chalk.yellow('This operation may modify the production database.')
+  );
   logger.info('');
 
   await runSqlMigrations(table, appliedMigrations, files, executeQueries);
@@ -238,7 +274,7 @@ async function runSqlMigrations(
   }
 
   // Apply the initial migration to create the migrations table
-  {
+  if (migrationsToApply.length > 0) {
     const spinner = ora(chalk.yellow('Preparing migrations...')).start();
     try {
       const query = `

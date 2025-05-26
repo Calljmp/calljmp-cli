@@ -46,10 +46,10 @@ function printStatements(title: string, statements: string[]) {
   );
   logger.info(
     chalk.dim('│ ') +
-    chalk.bold('Step'.padEnd(stepColWidth - 1)) +
-    chalk.dim('│ ') +
-    chalk.bold('SQL statement'.padEnd(statementLineLength)) +
-    chalk.dim(' │')
+      chalk.bold('Step'.padEnd(stepColWidth - 1)) +
+      chalk.dim('│ ') +
+      chalk.bold('SQL statement'.padEnd(statementLineLength)) +
+      chalk.dim(' │')
   );
   logger.info(
     chalk.dim(
@@ -90,12 +90,12 @@ function printStatements(title: string, statements: string[]) {
       }
       logger.info(
         chalk.dim('│ ') +
-        (lineIdx === 0
-          ? String(idx + 1).padEnd(stepColWidth - 1)
-          : ' '.repeat(stepColWidth - 1)) +
-        chalk.dim('│ ') +
-        displayLine +
-        chalk.dim(' │')
+          (lineIdx === 0
+            ? String(idx + 1).padEnd(stepColWidth - 1)
+            : ' '.repeat(stepColWidth - 1)) +
+          chalk.dim('│ ') +
+          displayLine +
+          chalk.dim(' │')
       );
     });
   });
@@ -357,12 +357,12 @@ const schema = () =>
               const { name } = args.migrationName
                 ? { name: args.migrationName }
                 : await enquirer.prompt<{ name: string }>({
-                  type: 'input',
-                  name: 'name',
-                  message:
-                    'Enter a name for the migration file (e.g. add-users-table):',
-                  initial: 'new-migration',
-                });
+                    type: 'input',
+                    name: 'name',
+                    message:
+                      'Enter a name for the migration file (e.g. add-users-table):',
+                    initial: 'new-migration',
+                  });
               const fileName = `${version}-${name.replace(/[^a-zA-Z0-9-_]/g, '_')}.sql`;
               const filePath = path.join(cfg.migrations, fileName);
               await fs.mkdir(cfg.migrations, { recursive: true });
