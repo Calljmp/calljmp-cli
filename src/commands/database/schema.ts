@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import buildConfig, { ConfigOptions } from '../../config';
 import ora from 'ora';
 import chalk from 'chalk';
+import crypto from 'crypto';
 import enquirer from 'enquirer';
 import fs from 'fs/promises';
 import path from 'path';
@@ -139,6 +140,7 @@ const schema = () =>
       const remoteSchemaStatements: string[] = [];
       const schemaStatements: string[] = [];
       const dataStatements: string[] = [];
+      const migrationFiles = await collectMigrations(cfg);
 
       if (args.sync) {
         const schema = await retrieveSchema(database);
@@ -239,7 +241,6 @@ const schema = () =>
           await migration.migrate(targetSchemaStatements.join(';'));
           migration.clear();
 
-          const migrationFiles = await collectMigrations(cfg);
           const migrationStatements = await Promise.all(
             migrationFiles.map(async ({ file }) => {
               const content = await fs.readFile(file, 'utf-8');
@@ -335,8 +336,15 @@ const schema = () =>
             printStatements('Migration steps', migration.statements);
 
             let willGenerate = true;
+            let willApply = true;
 
-            if (args.confirm) {
+            let migrationInfo: {
+              version: number;
+              name: string;
+              hash: string;
+            } | null = null;
+
+            if (willGenerate && args.confirm) {
               const { confirm } = await enquirer.prompt<{ confirm: boolean }>({
                 type: 'confirm',
                 name: 'confirm',
@@ -348,12 +356,16 @@ const schema = () =>
                   chalk.yellow('Aborting migration file generation.')
                 );
                 willGenerate = false;
+                willApply = false;
               }
             }
 
             if (willGenerate) {
-              const now = new Date();
-              const version = Math.floor(now.getTime() / 1000);
+              const version =
+                migrationFiles.reduce(
+                  (max, file) => Math.max(max, file.version),
+                  0
+                ) + 1;
               const { name } = args.migrationName
                 ? { name: args.migrationName }
                 : await enquirer.prompt<{ name: string }>({
@@ -363,20 +375,23 @@ const schema = () =>
                       'Enter a name for the migration file (e.g. add-users-table):',
                     initial: 'new-migration',
                   });
-              const fileName = `${version}-${name.replace(/[^a-zA-Z0-9-_]/g, '_')}.sql`;
+
+              const content = migration.statements.join(';\n\n') + ';\n';
+              const hash = await crypto.subtle
+                .digest('SHA-256', Buffer.from(content, 'utf-8'))
+                .then(buffer => Buffer.from(buffer).toString('hex'));
+
+              const fileName = `${version.toString().padStart(4, '0')}-${name.replace(/[^a-zA-Z0-9-_]/g, '_')}.sql`;
               const filePath = path.join(cfg.migrations, fileName);
+
               await fs.mkdir(cfg.migrations, { recursive: true });
-              await fs.writeFile(
-                filePath,
-                migration.statements.join(';\n\n') + ';\n',
-                'utf-8'
-              );
+              await fs.writeFile(filePath, content, 'utf-8');
               logger.info(chalk.green(`Migration file created: ${fileName}`));
+
+              migrationInfo = { version, name, hash };
             }
 
-            let willApply = true;
-
-            if (args.confirm) {
+            if (willApply && args.confirm) {
               const { confirm } = await enquirer.prompt<{ confirm: boolean }>({
                 type: 'confirm',
                 name: 'confirm',
@@ -389,13 +404,24 @@ const schema = () =>
               }
             }
 
-            if (willApply) {
+            if (willApply && migrationInfo) {
               const spinner = ora(
                 chalk.yellow('Applying migration...')
               ).start();
               try {
                 await db.batch(
-                  migration.statements.map(sql => db.prepare(sql))
+                  [
+                    `
+                    CREATE TABLE IF NOT EXISTS ${args.migrationsTable} (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      name TEXT NOT NULL UNIQUE,
+                      version INTEGER NOT NULL,
+                      hash TEXT NOT NULL
+                    )
+                    `,
+                    ...migration.statements,
+                    `INSERT INTO ${args.migrationsTable} (name, version, hash) VALUES ('${migrationInfo.name}', ${migrationInfo.version}, '${migrationInfo.hash}')`,
+                  ].map(sql => db.prepare(sql.trim()))
                 );
                 spinner.succeed(chalk.green('Migration applied.'));
               } catch (error) {
