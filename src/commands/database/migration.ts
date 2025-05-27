@@ -292,7 +292,9 @@ async function runSqlMigrations(
   }
 
   for (const migration of migrations) {
-    const content = await fs.readFile(migration.file, 'utf-8');
+    const content = splitSqlQuery(await fs.readFile(migration.file, 'utf-8'))
+      .filter(query => query.trim() !== '')
+      .join(';');
     const hash = await crypto.subtle
       .digest('SHA-256', Buffer.from(content, 'utf-8'))
       .then(buffer => Buffer.from(buffer).toString('hex'));

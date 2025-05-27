@@ -11,13 +11,14 @@ import logger from '../../logger';
 import * as server from '../../server';
 import { build } from '../../build';
 import splitSqlQuery from '../../sql';
-import { SqliteMigration } from '../../sqlite/migration';
+import { MigrationStep, SqliteMigration } from '../../sqlite/migration';
 import { Database } from '../../database';
 import {
   collectMigrations,
   dataToInsertStatements,
   MIGRATION_TABLE,
 } from './migration';
+import { normalizeSql } from '../../sqlite/utils';
 
 async function retrieveSchema(database: Database) {
   const statements: string[] = [];
@@ -34,8 +35,54 @@ async function retrieveSchema(database: Database) {
   return statements;
 }
 
-function printStatements(title: string, statements: string[]) {
-  const stepColWidth = 6;
+function formatSqlForTable(sql: string, maxWidth: number): string[] {
+  const formatted = sql
+    .replace(/\s+/g, ' ')
+    .replace(/,\s*/g, ', ')
+    .replace(/\(\s*/g, '(')
+    .replace(/\s*\)/g, ')')
+    .replace(/\bSELECT\b/gi, 'SELECT')
+    .replace(/\bFROM\b/gi, 'FROM')
+    .replace(/\bWHERE\b/gi, 'WHERE')
+    .replace(/\bINSERT\b/gi, 'INSERT')
+    .replace(/\bINTO\b/gi, 'INTO')
+    .replace(/\bUPDATE\b/gi, 'UPDATE')
+    .replace(/\bSET\b/gi, 'SET')
+    .replace(/\bDELETE\b/gi, 'DELETE')
+    .replace(/\bCREATE\b/gi, 'CREATE')
+    .replace(/\bTABLE\b/gi, 'TABLE')
+    .replace(/\bALTER\b/gi, 'ALTER')
+    .replace(/\bDROP\b/gi, 'DROP')
+    .trim();
+
+  const lines: string[] = [];
+  const words = formatted.split(' ');
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+
+    if ([...testLine].length <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        lines.push(word);
+      }
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines.length ? lines : [''];
+}
+
+function printMigration(title: string, steps: MigrationStep[]) {
+  const stepColWidth = 8;
   const statementColWidth = 100;
   const statementLineLength = statementColWidth - 2;
 
@@ -49,7 +96,7 @@ function printStatements(title: string, statements: string[]) {
     chalk.dim('│ ') +
       chalk.bold('Step'.padEnd(stepColWidth - 1)) +
       chalk.dim('│ ') +
-      chalk.bold('SQL statement'.padEnd(statementLineLength)) +
+      chalk.bold('SQL Statement'.padEnd(statementLineLength)) +
       chalk.dim(' │')
   );
   logger.info(
@@ -58,47 +105,38 @@ function printStatements(title: string, statements: string[]) {
     )
   );
 
-  statements.forEach((stmt, idx) => {
-    const lines = stmt.split('\n').flatMap(line => {
-      if ([...line].length <= statementLineLength) return [line];
-      const wrapped: string[] = [];
-      let start = 0;
-      while (start < line.length) {
-        let sliceLen = 0;
-        let charCount = 0;
-        while (
-          start + sliceLen < line.length &&
-          charCount < statementLineLength
-        ) {
-          const code = line.codePointAt(start + sliceLen)!;
-          sliceLen += code > 0xffff ? 2 : 1;
-          charCount++;
-        }
-        wrapped.push(line.slice(start, start + sliceLen));
-        start += sliceLen;
-      }
-      return wrapped;
-    });
+  steps.forEach((step, idx) => {
+    const allLines = step.statements.flatMap(statement =>
+      formatSqlForTable(statement, statementLineLength)
+    );
+
+    const lines = allLines.length ? allLines : [''];
 
     lines.forEach((line, lineIdx) => {
-      let displayLine = line;
-      const chars = [...displayLine];
-      if (chars.length < statementLineLength) {
-        displayLine =
-          displayLine + ' '.repeat(statementLineLength - chars.length);
-      } else if (chars.length > statementLineLength) {
-        displayLine = chars.slice(0, statementLineLength).join('');
-      }
+      const displayLine = line.padEnd(statementLineLength);
+
       logger.info(
         chalk.dim('│ ') +
           (lineIdx === 0
-            ? String(idx + 1).padEnd(stepColWidth - 1)
+            ? chalk.cyan(String(idx + 1).padEnd(stepColWidth - 1))
             : ' '.repeat(stepColWidth - 1)) +
           chalk.dim('│ ') +
-          displayLine +
+          chalk.white(displayLine) +
           chalk.dim(' │')
       );
     });
+
+    if (idx < steps.length - 1) {
+      logger.info(
+        chalk.dim(
+          '├' +
+            '─'.repeat(stepColWidth) +
+            '┼' +
+            '─'.repeat(statementColWidth) +
+            '┤'
+        )
+      );
+    }
   });
 
   logger.info(
@@ -197,13 +235,11 @@ const schema = () =>
         if (file.toLowerCase().endsWith('.sql')) {
           const filePath = path.join(cfg.schema, file);
           const content = await fs.readFile(filePath, 'utf-8');
-          const sql = splitSqlQuery(content);
-
-          for (const query of sql) {
-            if (query.trim().length > 0) {
-              schemaStatements.push(query);
-            }
-          }
+          schemaStatements.push(
+            ...splitSqlQuery(content)
+              .map(normalizeSql)
+              .filter(query => query.length > 0)
+          );
         }
       }
 
@@ -237,9 +273,8 @@ const schema = () =>
         if (remoteSchemaStatements.length) {
           const targetSchemaStatements = await pollTargetSchema();
 
-          const migration = await SqliteMigration.create();
-          await migration.migrate(targetSchemaStatements.join(';'));
-          migration.clear();
+          const migration = new SqliteMigration();
+          await migration.exec(targetSchemaStatements.join(';'));
 
           const migrationStatements = await Promise.all(
             migrationFiles.map(async ({ file }) => {
@@ -249,13 +284,13 @@ const schema = () =>
             })
           );
 
-          await migration.migrate(
+          await migration.prepare(
             [...remoteSchemaStatements, ...migrationStatements].join(';')
           );
-          if (migration.numberOfChanges) {
-            printStatements(
+          if (migration.totalSteps) {
+            printMigration(
               'Migration steps (syncing remote schema to local)',
-              migration.statements
+              migration.steps
             );
 
             let willApply = true;
@@ -264,7 +299,7 @@ const schema = () =>
               const { confirm } = await enquirer.prompt<{ confirm: boolean }>({
                 type: 'confirm',
                 name: 'confirm',
-                message: `Do you want to apply these ${migration.numberOfChanges} step(s) to sync your local database with the remote schema?`,
+                message: `Do you want to apply these ${migration.totalSteps} step(s) to sync your local database with the remote schema?`,
                 initial: true,
               });
               if (!confirm) {
@@ -279,7 +314,7 @@ const schema = () =>
               ).start();
               try {
                 await db.batch(
-                  migration.statements.map(sql => db.prepare(sql))
+                  migration.statements().map(sql => db.prepare(sql))
                 );
                 spinner.succeed(
                   chalk.green(
@@ -327,13 +362,12 @@ const schema = () =>
         {
           const targetSchemaStatements = await pollTargetSchema();
 
-          const migration = await SqliteMigration.create();
-          await migration.migrate(targetSchemaStatements.join(';'));
-          migration.clear();
+          const migration = new SqliteMigration();
+          await migration.exec(targetSchemaStatements.join(';'));
+          await migration.prepare(schemaStatements.join(';'));
 
-          await migration.migrate(schemaStatements.join(';'));
-          if (migration.numberOfChanges) {
-            printStatements('Migration steps', migration.statements);
+          if (migration.totalSteps) {
+            printMigration('Migration steps', migration.steps);
 
             let willGenerate = true;
             let willApply = true;
@@ -348,7 +382,7 @@ const schema = () =>
               const { confirm } = await enquirer.prompt<{ confirm: boolean }>({
                 type: 'confirm',
                 name: 'confirm',
-                message: `Do you want to generate a new migration file with these ${migration.statements.length} step(s)?`,
+                message: `Do you want to generate a new migration file with these ${migration.totalSteps} step(s)?`,
                 initial: true,
               });
               if (!confirm) {
@@ -376,7 +410,7 @@ const schema = () =>
                     initial: 'new-migration',
                   });
 
-              const content = migration.statements.join(';\n\n') + ';\n';
+              const content = migration.sql();
               const hash = await crypto.subtle
                 .digest('SHA-256', Buffer.from(content, 'utf-8'))
                 .then(buffer => Buffer.from(buffer).toString('hex'));
@@ -419,9 +453,9 @@ const schema = () =>
                       hash TEXT NOT NULL
                     )
                     `,
-                    ...migration.statements,
+                    ...migration.statements(),
                     `INSERT INTO ${args.migrationsTable} (name, version, hash) VALUES ('${migrationInfo.name}', ${migrationInfo.version}, '${migrationInfo.hash}')`,
-                  ].map(sql => db.prepare(sql.trim()))
+                  ].map(sql => db.prepare(sql))
                 );
                 spinner.succeed(chalk.green('Migration applied.'));
               } catch (error) {

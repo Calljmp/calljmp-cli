@@ -1,263 +1,340 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
+import { normalizeSql } from './utils';
 
-export interface DatabaseDriver {
-  exec: (sql: string) => Promise<void>;
-  all: <T = any[]>(sql: string, ...params: any[]) => Promise<T>;
+export interface MigrationStep {
+  type: 'table' | 'index' | 'trigger' | 'view';
+  name: string;
+  statements: string[];
+  deferForeignKeys?: boolean;
 }
 
 export class SqliteMigration {
-  private _numberOfChanges = 0;
-  private _executedStatements: string[] = [];
-  private _mitigageForeignKey = false;
+  private _steps: MigrationStep[] = [];
+  private _target: Database | null = null;
 
-  static async create(db?: DatabaseDriver): Promise<SqliteMigration> {
-    const _db =
-      db || (await open({ filename: ':memory:', driver: sqlite3.Database }));
-    return new SqliteMigration(_db);
+  get totalSteps(): number {
+    return this._steps.length;
   }
 
-  private constructor(private _db: DatabaseDriver) {
-    this._db = _db;
+  get steps(): MigrationStep[] {
+    return [...this._steps];
   }
 
-  get numberOfChanges(): number {
-    return this._numberOfChanges;
+  private _generate(pretty = false) {
+    const lines: string[] = [];
+
+    const deferForeignKeys = this._steps.some(step => step.deferForeignKeys);
+    if (deferForeignKeys) {
+      lines.push('PRAGMA defer_foreign_keys = ON;');
+      if (pretty) {
+        lines.push('');
+      }
+    }
+
+    for (const step of this._steps) {
+      if (pretty) {
+        lines.push(`-- ${step.type.toUpperCase()}: ${step.name}`);
+      }
+      for (const statement of step.statements) {
+        const normalized = normalizeSql(statement);
+        lines.push(normalized.endsWith(';') ? normalized : `${normalized};`);
+      }
+      if (pretty) {
+        lines.push('');
+      }
+    }
+
+    if (deferForeignKeys) {
+      lines.push('PRAGMA defer_foreign_keys = OFF;');
+    }
+
+    return lines;
   }
 
-  get statements(): string[] {
-    return [...this._executedStatements];
+  statements(): string[] {
+    return this._generate(false);
   }
 
-  clear() {
-    this._mitigageForeignKey = false;
-    this._numberOfChanges = 0;
-    this._executedStatements = [];
+  sql(): string {
+    return this._generate(true).join('\n');
   }
 
-  async migrate(schema: string) {
+  async exec(sql: string) {
+    const target = await this._acquireTarget();
+    await target.exec(sql);
+  }
+
+  async prepare(schema: string) {
     const pristine = await open({
       filename: ':memory:',
       driver: sqlite3.Database,
     });
     await pristine.exec(schema);
 
-    await this._db.exec('PRAGMA foreign_keys = off');
-    await this._db.exec('BEGIN');
-    try {
-      await this._db.exec('PRAGMA defer_foreign_keys = on');
+    const target = await this._acquireTarget();
+    const recreatedTables = new Set<string>();
+    await this._migrateTables(pristine, target, recreatedTables);
+    await this._migrateObjects('index', pristine, target, recreatedTables);
+    await this._migrateObjects('trigger', pristine, target, recreatedTables);
+    await this._migrateObjects('view', pristine, target, recreatedTables);
+  }
 
-      await this._migrateTables(pristine);
-      await this._migrateIndexes(pristine);
-      await this._migrateTriggers(pristine);
-      await this._migrateViews(pristine);
+  private async _acquireTarget() {
+    if (!this._target) {
+      this._target = await open({
+        filename: ':memory:',
+        driver: sqlite3.Database,
+      });
+    }
+    return this._target;
+  }
 
-      const [fkRes] = await pristine.all('PRAGMA foreign_keys');
-      if (fkRes?.foreign_keys) {
-        const fkViolations = await this._db.all('PRAGMA foreign_key_check');
-        if (fkViolations.length) throw new Error('Foreign key check failed');
+  private async _planRecreate(
+    pristine: Database,
+    target: Database,
+    table: string,
+    definition: string
+  ) {
+    const currentCols = await this._columns(target, table);
+    const pristineCols = await this._columns(pristine, table);
+
+    const commonCols = currentCols.filter(oldCol =>
+      pristineCols.some(newCol => newCol.name === oldCol.name)
+    );
+
+    this._steps.push({
+      type: 'table',
+      name: table,
+      deferForeignKeys: true,
+      statements: [
+        `ALTER TABLE ${table} RENAME TO ${table}_old`,
+        definition,
+        `INSERT INTO ${table} (${commonCols.map(c => c.name).join(', ')}) SELECT ${commonCols.map(c => c.name).join(', ')} FROM ${table}_old`,
+        `DROP TABLE ${table}_old`,
+      ],
+    });
+  }
+
+  private async _isAddOnlyColumns(
+    pristine: Database,
+    current: Database,
+    table: string
+  ) {
+    const newCols = await this._columns(pristine, table);
+    const oldCols = await this._columns(current, table);
+    const removed = oldCols.filter(
+      col => !newCols.some(newCol => newCol.name === col.name)
+    );
+    const added = newCols.filter(
+      col => !oldCols.some(oldCol => oldCol.name === col.name)
+    );
+    const safe =
+      removed.length === 0 &&
+      added.every(col => col.dflt_value !== null || col.notnull === 0);
+    return { addOnly: safe, added };
+  }
+
+  private async _migrateTables(
+    pristine: Database,
+    target: Database,
+    recreatedTables: Set<string>
+  ) {
+    const foreignKeyGraph = await this._buildForeignKeyGraph(pristine);
+    const currentTables = await this._objects(target, 'table');
+    const newTables = await this._objects(pristine, 'table');
+
+    const removed = [...currentTables.keys()].filter(k => !newTables.has(k));
+    const added = [...newTables.keys()].filter(k => !currentTables.has(k));
+    const modified = [...newTables.keys()].filter(
+      k =>
+        currentTables.has(k) &&
+        normalizeSql(currentTables.get(k)!) !== normalizeSql(newTables.get(k)!)
+    );
+
+    const sorted = this._topologicalSort(
+      [...new Set([...modified, ...removed, ...added])],
+      foreignKeyGraph
+    );
+
+    for (const table of sorted) {
+      if (removed.includes(table)) {
+        this._steps.push({
+          type: 'table',
+          name: table,
+          statements: [`DROP TABLE ${table}`],
+        });
+      } else if (added.includes(table)) {
+        const definition = newTables.get(table);
+        if (!definition) {
+          throw new Error(`Table ${table} not found in schema definitions.`);
+        }
+        this._steps.push({
+          type: 'table',
+          name: table,
+          statements: [definition],
+        });
+      } else if (modified.includes(table)) {
+        const { addOnly, added: addedCols } = await this._isAddOnlyColumns(
+          pristine,
+          target,
+          table
+        );
+        if (addOnly) {
+          const stmts = addedCols.map(col =>
+            `ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.type || ''}${col.notnull ? ' NOT NULL' : ''}${col.dflt_value !== null ? ` DEFAULT ${col.dflt_value}` : ''}`.trim()
+          );
+          this._steps.push({ type: 'table', name: table, statements: stmts });
+        } else {
+          const definition = newTables.get(table);
+          if (!definition) {
+            throw new Error(`Table ${table} not found in schema definitions.`);
+          }
+          recreatedTables.add(table.toLowerCase());
+          await this._planRecreate(pristine, target, table, definition);
+        }
       }
+    }
+  }
 
-      if (this._mitigageForeignKey) {
-        this._executedStatements = [
-          'PRAGMA defer_foreign_keys = on',
-          ...this._executedStatements,
-          'PRAGMA defer_foreign_keys = off',
-        ];
+  private async _migrateObjects(
+    type: 'index' | 'trigger' | 'view',
+    pristine: Database,
+    target: Database,
+    recreatedTables: Set<string>
+  ) {
+    const extractTable = (sql: string): string => {
+      const patterns = {
+        index: /INDEX\s+\w+\s+ON\s+["`]?(\w+)["`]?/i,
+        trigger: /ON\s+["`]?(\w+)["`]?/i,
+        view: /CREATE\s+VIEW\s+\w+\s+AS\s+SELECT.*?\sFROM\s+["`]?(\w+)["`]?/is,
+      };
+      const match = sql.trim().toUpperCase().match(patterns[type]);
+      return match?.[1]?.toLowerCase() ?? '';
+    };
+
+    const current = await this._objects(target, type);
+    const fresh = await this._objects(pristine, type);
+
+    const getDefinition = (name: string): string => {
+      const definition = fresh.get(name);
+      if (!definition) {
+        throw new Error(`Object ${name} not found in schema definitions.`);
       }
+      return definition;
+    };
 
-      await this._db.exec('PRAGMA defer_foreign_keys = off');
-      await this._db.exec('COMMIT');
-      await this._db.exec('PRAGMA foreign_keys = on');
-    } catch (error) {
-      await this._db.exec('ROLLBACK');
-      await this._db.exec('PRAGMA foreign_keys = on');
-      throw error;
-    }
-  }
-
-  private async _migrateIndexes(pristine: Database) {
-    const indexes = await this._indexes(this._db);
-    const pristineIndexes = await this._indexes(pristine);
-
-    const removedIndexes = [...indexes.keys()].filter(
-      k => !pristineIndexes.has(k)
+    const dropped = [...current.keys()].filter(k => !fresh.has(k));
+    const added = [...fresh.keys()].filter(k => !current.has(k));
+    const modified = [...fresh.keys()].filter(
+      k =>
+        current.has(k) &&
+        (normalizeSql(current.get(k)!) !== normalizeSql(getDefinition(k)) ||
+          recreatedTables.has(extractTable(getDefinition(k))))
     );
-    const newIndexes = [...pristineIndexes.keys()].filter(k => !indexes.has(k));
-    const modifiedIndexes = [...pristineIndexes.keys()]
-      .filter(k => indexes.has(k))
-      .filter(
-        k =>
-          normalizeSql(pristineIndexes.get(k)!) !==
-          normalizeSql(indexes.get(k)!)
-      );
 
-    for (const idx of newIndexes) {
-      await this._exec(pristineIndexes.get(idx)!);
+    for (const k of dropped) {
+      this._steps.push({
+        type,
+        name: k,
+        statements: [`DROP ${type.toUpperCase()} ${k}`],
+      });
     }
 
-    for (const idx of removedIndexes) {
-      await this._exec(`DROP INDEX ${idx}`);
+    for (const k of added) {
+      this._steps.push({ type, name: k, statements: [getDefinition(k)] });
     }
 
-    for (const idx of modifiedIndexes) {
-      await this._exec(`DROP INDEX ${idx}`);
-      await this._exec(pristineIndexes.get(idx)!);
-    }
-  }
-
-  private async _migrateTables(pristine: Database) {
-    const tables = await this._tables(this._db);
-    const pristineTables = await this._tables(pristine);
-
-    const removedTables = [...tables.keys()].filter(
-      k => !pristineTables.has(k)
-    );
-    const newTables = [...pristineTables.keys()].filter(k => !tables.has(k));
-    const modifiedTables = [...pristineTables.keys()]
-      .filter(k => tables.has(k))
-      .filter(
-        k =>
-          normalizeSql(pristineTables.get(k)!) !==
-          normalizeSql(tables.get(k) || '')
-      );
-
-    if (modifiedTables.length) {
-      this._mitigageForeignKey = true;
-    }
-
-    for (const tbl of newTables) {
-      await this._exec(pristineTables.get(tbl)!);
-    }
-
-    for (const tbl of removedTables) {
-      await this._exec(`DROP TABLE ${tbl}`);
-    }
-
-    for (const tbl of modifiedTables) {
-      const createTable = pristineTables
-        .get(tbl)!
-        .replace(new RegExp(`\\b${tbl}\\b`, 'g'), `${tbl}_migration_new`);
-      await this._exec(createTable);
-
-      const columns = await this._columns(this._db, tbl);
-      const pristineColumns = await this._columns(pristine, tbl);
-      const commonColumns = columns.filter(c => pristineColumns.includes(c));
-
-      await this._exec(
-        `INSERT INTO ${tbl}_migration_new (${commonColumns.join(', ')}) SELECT ${commonColumns.join(', ')} FROM ${tbl}`
-      );
-      await this._exec(`DROP TABLE ${tbl}`);
-      await this._exec(`ALTER TABLE ${tbl}_migration_new RENAME TO ${tbl}`);
+    for (const k of modified) {
+      if (
+        type === 'view' ||
+        !recreatedTables.has(extractTable(getDefinition(k)))
+      ) {
+        this._steps.push({
+          type,
+          name: k,
+          statements: [`DROP ${type.toUpperCase()} ${k}`],
+        });
+      }
+      this._steps.push({ type, name: k, statements: [getDefinition(k)] });
     }
   }
 
-  private async _migrateTriggers(pristine: Database) {
-    const triggers = await this._triggers(this._db);
-    const pristineTriggers = await this._triggers(pristine);
-
-    const removedTriggers = [...triggers.keys()].filter(
-      k => !pristineTriggers.has(k)
-    );
-    const newTriggers = [...pristineTriggers.keys()].filter(
-      k => !triggers.has(k)
-    );
-    const modifiedTriggers = [...pristineTriggers.keys()]
-      .filter(k => triggers.has(k))
-      .filter(
-        k =>
-          normalizeSql(pristineTriggers.get(k)!) !==
-          normalizeSql(triggers.get(k)!)
-      );
-
-    for (const trg of newTriggers) {
-      await this._exec(pristineTriggers.get(trg)!);
+  private async _buildForeignKeyGraph(db: Database) {
+    const graph = new Map<string, Set<string>>();
+    const tables = await this._objects(db, 'table');
+    for (const tbl of tables.keys()) {
+      const fks = await this._foreignKeys(db, tbl);
+      for (const fk of fks) {
+        if (!graph.has(fk.table.toLowerCase())) {
+          graph.set(fk.table.toLowerCase(), new Set());
+        }
+        graph.get(fk.table.toLowerCase())!.add(tbl.toLowerCase());
+      }
     }
-
-    for (const trg of removedTriggers) {
-      await this._exec(`DROP TRIGGER ${trg}`);
-    }
-
-    for (const trg of modifiedTriggers) {
-      await this._exec(`DROP TRIGGER ${trg}`);
-      await this._exec(pristineTriggers.get(trg)!);
-    }
+    return graph;
   }
 
-  private async _migrateViews(pristine: Database) {
-    const views = await this._views(this._db);
-    const pristineViews = await this._views(pristine);
+  private _topologicalSort(
+    tables: string[],
+    foreignKeyGraph: Map<string, Set<string>>
+  ): string[] {
+    const visited = new Set<string>();
+    const result: string[] = [];
 
-    const removedViews = [...views.keys()].filter(k => !pristineViews.has(k));
-    const newViews = [...pristineViews.keys()].filter(k => !views.has(k));
-    const modifiedViews = [...pristineViews.keys()]
-      .filter(k => views.has(k))
-      .filter(
-        k => normalizeSql(pristineViews.get(k)!) !== normalizeSql(views.get(k)!)
-      );
+    const visit = (node: string) => {
+      if (visited.has(node)) {
+        return;
+      }
+      visited.add(node);
+      for (const child of foreignKeyGraph.get(node) || []) {
+        visit(child);
+      }
+      result.push(node);
+    };
 
-    for (const v of newViews) {
-      await this._exec(pristineViews.get(v)!);
+    for (const node of tables) {
+      visit(node);
     }
-
-    for (const v of removedViews) {
-      await this._exec(`DROP VIEW ${v}`);
-    }
-
-    for (const v of modifiedViews) {
-      await this._exec(`DROP VIEW ${v}`);
-      await this._exec(pristineViews.get(v)!);
-    }
-  }
-
-  private async _exec(sql: string) {
-    await this._db.exec(sql);
-    this._executedStatements.push(sql);
-    this._numberOfChanges++;
+    return result.reverse();
   }
 
   private async _objects(
-    db: DatabaseDriver,
-    type: 'table' | 'index' | 'trigger' | 'view'
-  ): Promise<Map<string, string>> {
-    const sql =
-      'SELECT name, sql FROM sqlite_master WHERE type = ? AND sql IS NOT NULL AND name NOT LIKE "sqlite_%" AND name NOT LIKE "_cf_%" AND name NOT LIKE "%_calljmp_%"';
-    const rows = await db.all<
+    db: Database,
+    type: 'index' | 'trigger' | 'view' | 'table'
+  ) {
+    const rows = await db.all<{ name: string; sql: string }[]>(
+      'SELECT name, sql FROM sqlite_master WHERE type = ? AND sql IS NOT NULL AND name NOT LIKE "sqlite_%"',
+      type
+    );
+    return new Map(rows.map(r => [r.name.toLowerCase(), r.sql]));
+  }
+
+  private async _foreignKeys(db: Database, table: string) {
+    return db.all<
       {
-        name: string;
-        sql: string;
+        id: number;
+        seq: number;
+        table: string;
+        from: string;
+        to: string;
+        on_update: string;
+        on_delete: string;
+        match: string;
       }[]
-    >(sql, type);
-    return new Map(rows.map(r => [r.name, r.sql]));
+    >(`PRAGMA foreign_key_list(${table})`);
   }
 
-  private async _tables(db: DatabaseDriver): Promise<Map<string, string>> {
-    return this._objects(db, 'table');
+  private async _columns(db: Database, table: string) {
+    return db.all<
+      {
+        cid: number;
+        name: string;
+        type: string;
+        notnull: number;
+        dflt_value: any;
+        pk: number;
+      }[]
+    >(`PRAGMA table_info(${table})`);
   }
-
-  private async _indexes(db: DatabaseDriver): Promise<Map<string, string>> {
-    return this._objects(db, 'index');
-  }
-
-  private async _triggers(db: DatabaseDriver): Promise<Map<string, string>> {
-    return this._objects(db, 'trigger');
-  }
-
-  private async _views(db: DatabaseDriver): Promise<Map<string, string>> {
-    return this._objects(db, 'view');
-  }
-
-  private async _columns(db: DatabaseDriver, table: string): Promise<string[]> {
-    const rows = await db.all(`PRAGMA table_info(${table})`);
-    return rows.map((r: any) => r.name);
-  }
-}
-
-export function normalizeSql(sql: string): string {
-  return sql
-    .replace(/--[^\n]*\n/g, '')
-    .replace(/\s+/g, ' ')
-    .replace(/ *([(),]) */g, '$1')
-    .replace(/"(\w+)"/g, '$1')
-    .trim();
 }
