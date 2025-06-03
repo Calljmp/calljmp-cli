@@ -2,9 +2,20 @@ import { Option } from 'commander';
 import path from 'path';
 import fs from 'fs/promises';
 
+export const ConfigDefaults = {
+  baseUrl: 'https://api.calljmp.com',
+  project: '.',
+  module: './src/service',
+  migrations: './src/service/migrations',
+  schema: './src/service/schema',
+};
+
 interface PersistentConfig {
   projectId?: number;
   accessToken?: string;
+  module?: string;
+  migrations?: string;
+  schema?: string;
 }
 
 export interface Config extends PersistentConfig {
@@ -20,26 +31,36 @@ export interface Config extends PersistentConfig {
 }
 
 async function buildConfig({
-  project = '.',
-  module = './src/service',
-  migrations = './src/service/migrations',
-  schema = './src/service/schema',
+  project,
+  module,
+  migrations,
+  schema,
 }: {
   project?: string;
   module?: string;
   migrations?: string;
   schema?: string;
 }): Promise<Config> {
-  const projectDirectory = path.resolve(process.cwd(), project);
-  const moduleDirectory = path.resolve(projectDirectory, module);
-  const migrationsDirectory = path.resolve(projectDirectory, migrations);
-  const schemaDirectory = path.resolve(projectDirectory, schema);
+  const projectDirectory = path.resolve(process.cwd(), project || '.');
   const dataDirectory = path.join(projectDirectory, '.calljmp');
-  const data = await readConfig(dataDirectory);
+  const config = await readConfig(dataDirectory);
+
+  const moduleDirectory = path.resolve(
+    projectDirectory,
+    module || config?.module || ConfigDefaults.module
+  );
+  const migrationsDirectory = path.resolve(
+    projectDirectory,
+    migrations || config?.migrations || ConfigDefaults.migrations
+  );
+  const schemaDirectory = path.resolve(
+    projectDirectory,
+    schema || config?.schema || ConfigDefaults.schema
+  );
 
   return {
-    ...data,
-    baseUrl: process.env.CALLJMP_BASE_URL || 'https://api.calljmp.com',
+    ...config,
+    baseUrl: process.env.CALLJMP_BASE_URL || ConfigDefaults.baseUrl,
     project: projectDirectory,
     module: moduleDirectory,
     data: dataDirectory,
@@ -68,6 +89,9 @@ export async function writeConfig(config: Config) {
       {
         projectId: config.projectId,
         accessToken: config.accessToken,
+        module: path.relative(config.project, config.module),
+        migrations: path.relative(config.project, config.migrations),
+        schema: path.relative(config.project, config.schema),
       },
       null,
       2
@@ -80,16 +104,16 @@ export const ConfigOptions = {
     .default('.')
     .env('CALLJMP_PROJECT'),
   ModuleDirectory: new Option('-m, --module <directory>', 'Module directory')
-    .default('./src/service')
+    .default(ConfigDefaults.module)
     .env('CALLJMP_MODULE'),
   MigrationsDirectory: new Option(
     '--mg, --migrations <directory>',
     'Migrations directory'
   )
-    .default('./src/service/migrations')
+    .default(ConfigDefaults.migrations)
     .env('CALLJMP_MIGRATIONS'),
   SchemaDirectory: new Option('--s, --schema <directory>', 'Schema directory')
-    .default('./src/service/schema')
+    .default(ConfigDefaults.schema)
     .env('CALLJMP_SCHEMA'),
 };
 

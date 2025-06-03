@@ -8,6 +8,7 @@ import { Account } from '../account';
 import logger from '../logger';
 import { Project } from '../project';
 import { Project as ProjectData } from '../common';
+import path from 'path';
 
 const setup = () =>
   new Command('setup')
@@ -24,7 +25,6 @@ const setup = () =>
           process.exit(1);
         }
         cfg.accessToken = result.accessToken;
-        await writeConfig(cfg);
       }
 
       if (!cfg.accessToken) {
@@ -44,10 +44,58 @@ const setup = () =>
           process.exit(1);
         }
       }
-      if (cfg.projectId !== selectedProject.id) {
-        cfg.projectId = selectedProject.id;
-        await writeConfig(cfg);
-      }
+      cfg.projectId = selectedProject.id;
+
+      const { module, migrations, schema } = await enquirer.prompt<{
+        module: string;
+        migrations: string;
+        schema: string;
+      }>([
+        {
+          type: 'input',
+          name: 'module',
+          message: 'Service module directory',
+          initial: path.relative(cfg.project, cfg.module),
+          required: true,
+          validate: (value: string) => {
+            if (!value) {
+              return 'Service module directory is required';
+            }
+            return true;
+          },
+        },
+        {
+          type: 'input',
+          name: 'migrations',
+          message: 'Migrations directory',
+          initial: path.relative(cfg.project, cfg.migrations),
+          required: true,
+          validate: (value: string) => {
+            if (!value) {
+              return 'Migrations directory is required';
+            }
+            return true;
+          },
+        },
+        {
+          type: 'input',
+          name: 'schema',
+          message: 'Schema directory',
+          initial: path.relative(cfg.project, cfg.schema),
+          required: true,
+          validate: (value: string) => {
+            if (!value) {
+              return 'Schema directory is required';
+            }
+            return true;
+          },
+        },
+      ]);
+
+      cfg.module = path.resolve(cfg.project, module);
+      cfg.migrations = path.resolve(cfg.project, migrations);
+      cfg.schema = path.resolve(cfg.project, schema);
+      await writeConfig(cfg);
 
       await configureIgnores({
         directory: cfg.project,
