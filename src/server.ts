@@ -1,8 +1,7 @@
 import { Log, Miniflare } from 'miniflare';
 import logger from './logger';
 import { build } from './build';
-import { watch } from './watch';
-import { readVariables, resolveEnvFiles } from './env';
+import { readVariables } from './env';
 import chalk from 'chalk';
 import fs from 'fs/promises';
 
@@ -10,12 +9,14 @@ export async function create({
   script = '',
   port,
   database,
+  buckets,
   log,
   bindings,
 }: {
   script?: string;
   port?: number;
   database?: string;
+  buckets?: string[];
   log?: Log;
   bindings?: Record<string, unknown>;
 }) {
@@ -30,6 +31,7 @@ export async function create({
     log,
     d1Persist: database,
     d1Databases: ['db'],
+    r2Buckets: buckets,
     bindings: {
       ...bindings,
       DEVELOPMENT: true,
@@ -41,14 +43,16 @@ export async function start({
   projectDirectory,
   script,
   port,
-  signal,
   database,
+  buckets,
+  onReady,
 }: {
   projectDirectory: string;
   script: string;
   port: number;
-  signal?: AbortSignal;
   database?: string;
+  buckets?: string[];
+  onReady?: () => Promise<void>;
 }) {
   const envs = await readVariables(projectDirectory, 'development');
 
@@ -72,15 +76,6 @@ export async function start({
       {} as Record<string, string>
     );
 
-  logger.info('Secrets:');
-  if (Object.keys(secrets).length > 0) {
-    Object.entries(secrets).forEach(([key]) => {
-      logger.info(`  ${chalk.gray(key)}: ${chalk.blue('********')}`);
-    });
-  } else {
-    logger.info('  No secrets found.');
-  }
-
   logger.info('Variables:');
   if (Object.keys(variables).length > 0) {
     Object.entries(variables).forEach(([key, value]) => {
@@ -88,6 +83,15 @@ export async function start({
     });
   } else {
     logger.info('  No variables found.');
+  }
+
+  logger.info('Secrets:');
+  if (Object.keys(secrets).length > 0) {
+    Object.entries(secrets).forEach(([key]) => {
+      logger.info(`  ${chalk.gray(key)}: ${chalk.blue('********')}`);
+    });
+  } else {
+    logger.info('  No secrets found.');
   }
 
   const flare = await create({
@@ -98,28 +102,20 @@ export async function start({
     script,
     port,
     database,
+    buckets,
     log: logger,
   });
   try {
     await flare.ready;
-    logger.info('Press Ctrl+C to stop the server');
-    await new Promise<void>(resolve => {
-      if (signal) {
-        if (signal.aborted) {
-          resolve();
-        } else {
-          signal.onabort = () => {
-            resolve();
-          };
-        }
-      }
-    });
+    if (onReady) {
+      await onReady();
+    }
   } finally {
     await flare.dispose();
   }
 }
 
-async function buildWithLocalHandler(module: string) {
+export async function buildWithLocalHandler(module: string) {
   const tempDir = await fs.mkdtemp('/tmp/calljmp-');
   try {
     const entryPoint = `${tempDir}/index.ts`;
@@ -177,50 +173,4 @@ async function buildWithLocalHandler(module: string) {
   } finally {
     await fs.rm(tempDir, { recursive: true });
   }
-}
-
-export async function serve({
-  projectDirectory,
-  moduleDirectory,
-  entryPoints,
-  port,
-  database,
-}: {
-  projectDirectory: string;
-  moduleDirectory: string;
-  entryPoints: string;
-  port: number;
-  database?: string;
-}) {
-  let abortController: AbortController | null = null;
-  await watch(
-    [moduleDirectory, ...resolveEnvFiles(projectDirectory, 'development')],
-    chalk.yellow('Detected changes, restarting...'),
-    async () => {
-      if (abortController) {
-        abortController.abort();
-        // Give some time for the previous server to shut down
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      abortController = new AbortController();
-      const { signal } = abortController;
-
-      try {
-        const script = await buildWithLocalHandler(entryPoints);
-        await start({
-          projectDirectory,
-          script,
-          port,
-          database,
-          signal,
-        });
-      } catch (e) {
-        if (e instanceof Error) {
-          logger.error(e);
-        } else {
-          logger.error(new Error(`Unknown error: ${e}`));
-        }
-      }
-    }
-  );
 }

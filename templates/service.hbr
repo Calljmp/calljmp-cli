@@ -27,6 +27,19 @@ export abstract class CloudService<E extends CloudServiceEnv = CloudServiceEnv> 
     return this._env.db;
   }
 
+  protected get buckets() {
+    if (!this._env) {
+      throw new Error("Environment not set");
+    }
+    return {
+      {{#each buckets}}
+      {{#with this}}
+      {{name}}: this._env.{{binding}},
+      {{/with}}
+      {{/each}}
+    };
+  }
+
   protected get secrets() {
     if (!this._env) {
       throw new Error("Environment not set");

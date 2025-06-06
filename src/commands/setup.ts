@@ -92,9 +92,40 @@ const setup = () =>
         },
       ]);
 
+      logger.info(chalk.blue('Synchronizing service bindings...'));
+      const bindings = await project.bindings({
+        projectId: cfg.projectId,
+      });
+
+      function printBindingsTree(
+        bindings: Record<string, unknown>,
+        indent = ''
+      ) {
+        Object.entries(bindings).forEach(([key, value], index, array) => {
+          const isLast = index === array.length - 1;
+          const prefix = isLast ? '└── ' : '├── ';
+          const nextIndent = indent + (isLast ? '    ' : '│   ');
+
+          if (
+            typeof value === 'object' &&
+            value !== null &&
+            !Array.isArray(value)
+          ) {
+            console.log(`${indent}${prefix}${key}`);
+            printBindingsTree(value as Record<string, unknown>, nextIndent);
+          } else {
+            console.log(`${indent}${prefix}${key}: ${value}`);
+          }
+        });
+      }
+
+      printBindingsTree(bindings);
+
       cfg.module = path.resolve(cfg.project, module);
       cfg.migrations = path.resolve(cfg.project, migrations);
       cfg.schema = path.resolve(cfg.project, schema);
+      cfg.bindings = bindings;
+
       await writeConfig(cfg);
 
       await configureIgnores({
@@ -107,6 +138,7 @@ const setup = () =>
         service: cfg.service,
         entry: cfg.entry,
         types: cfg.types,
+        buckets: cfg.bindings?.buckets,
       });
     });
 

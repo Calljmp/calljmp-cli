@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import buildConfig, { ConfigOptions } from '../config';
+import buildConfig, { ConfigOptions, writeConfig } from '../config';
 import { readVariables } from '../env';
 import logger from '../logger';
 import chalk from 'chalk';
@@ -142,6 +142,50 @@ const access = () =>
       }
     });
 
+const bindings = () =>
+  new Command('bindings')
+    .description('Synchronize service bindings')
+    .addOption(ConfigOptions.ProjectDirectory)
+    .action(async args => {
+      const cfg = await buildConfig(args);
+      if (!cfg.projectId || !cfg.accessToken) {
+        logger.error(
+          chalk.red('Project is not linked. Please run `setup` command first.')
+        );
+        process.exit(1);
+      }
+
+      const project = new Project({
+        baseUrl: cfg.baseUrl,
+        accessToken: cfg.accessToken,
+      });
+
+      const spinner = ora('Synchronizing service bindings...').start();
+      try {
+        const bindings = await project.bindings({
+          projectId: cfg.projectId,
+        });
+        cfg.bindings = bindings;
+        await writeConfig(cfg);
+
+        await configureService({
+          directory: cfg.project,
+          service: cfg.service,
+          types: cfg.types,
+          entry: cfg.entry,
+          buckets: cfg.bindings?.buckets,
+        });
+
+        spinner.succeed('Service bindings synchronized');
+      } catch (e: any) {
+        spinner.fail('Failed to synchronize service bindings');
+        logger.error(e);
+        process.exit(1);
+      } finally {
+        spinner.stop();
+      }
+    });
+
 const generate = () =>
   new Command('generate')
     .description('Generate service code for the project')
@@ -153,13 +197,15 @@ const generate = () =>
         service: cfg.service,
         types: cfg.types,
         entry: cfg.entry,
+        buckets: cfg.bindings?.buckets,
       });
     });
 
 const service = () =>
   new Command('service')
-    .description('Deploy a service')
+    .description('Deploy and manage a cloud service')
     .addCommand(deploy())
+    .addCommand(bindings())
     .addCommand(access())
     .addCommand(generate());
 

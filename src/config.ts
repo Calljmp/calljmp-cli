@@ -10,12 +10,15 @@ export const ConfigDefaults = {
   schema: './src/service/schema',
 };
 
-interface PersistentConfig {
+export interface PersistentConfig {
   projectId?: number;
   accessToken?: string;
   module?: string;
   migrations?: string;
   schema?: string;
+  bindings?: {
+    buckets?: Record<string, string>;
+  };
 }
 
 export interface Config extends PersistentConfig {
@@ -92,6 +95,7 @@ export async function writeConfig(config: Config) {
         module: path.relative(config.project, config.module),
         migrations: path.relative(config.project, config.migrations),
         schema: path.relative(config.project, config.schema),
+        bindings: config.bindings,
       },
       null,
       2

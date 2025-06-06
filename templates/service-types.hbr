@@ -5,6 +5,9 @@
 declare namespace Calljmp {
   interface CloudServiceEnv {
     db: D1Database;
+    {{#each buckets}}
+    {{this}}: R2Bucket;
+    {{/each}}
 
     // Variables
     DEVELOPMENT?: boolean;

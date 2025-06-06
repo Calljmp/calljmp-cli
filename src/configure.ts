@@ -79,11 +79,13 @@ export async function configureService({
   entry,
   service,
   types,
+  buckets = {},
 }: {
   directory: string;
   service: string;
   entry: string;
   types: string;
+  buckets?: Record<string, string>;
 }) {
   const envs = Object.keys(await readVariables(directory, 'production'));
 
@@ -94,12 +96,23 @@ export async function configureService({
     .filter(key => key.toUpperCase().startsWith('SECRET_'))
     .map(key => key.toUpperCase().replace('SECRET_', ''));
 
-  const serviceContent = await template('service.hbr', { variables, secrets });
+  const serviceContent = await template('service.hbr', {
+    variables,
+    secrets,
+    buckets: Object.entries(buckets).map(([name, binding]) => ({
+      name,
+      binding,
+    })),
+  });
   await fs.writeFile(service, serviceContent, 'utf-8');
   logger.info(chalk.blue(`Generating ${path.basename(service)}`));
 
   const typesContent = await Promise.all([
-    template('service-types.hbr', { variables, secrets }),
+    template('service-types.hbr', {
+      variables,
+      secrets,
+      buckets: Object.values(buckets),
+    }),
     template('cf-types.hbr'),
   ]);
   await fs.writeFile(types, typesContent.join('\n\n'), 'utf-8');
