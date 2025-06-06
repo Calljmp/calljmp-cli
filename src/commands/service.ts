@@ -133,6 +133,11 @@ const access = () =>
         });
         spinner.stop();
         logger.info(`Access token: ${chalk.blue(accessToken)}`);
+        logger.info(
+          chalk.dim(
+            `curl https://api.calljmp.com/target/v1/service --header "X-Calljmp-Platform: iOS" --header "Authorization: Bearer ${accessToken}"`
+          )
+        );
       } catch (e: any) {
         spinner.fail('Access failed');
         logger.error(e);

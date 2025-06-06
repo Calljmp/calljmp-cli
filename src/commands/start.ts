@@ -21,7 +21,6 @@ const start = () =>
   new Command('start')
     .description('Start the server')
     .option('--port <number>', 'Port to run the server', parsePort, 8787)
-    .option('--pd, --persist-database', 'Persist the database', false)
     .addOption(ConfigOptions.ProjectDirectory)
     .addOption(ConfigOptions.ModuleDirectory)
     .action(async args => {
@@ -29,7 +28,7 @@ const start = () =>
       await serve({
         ...cfg,
         port: args.port,
-        database: args.persistDatabase ? cfg.data : undefined,
+        database: cfg.data,
       });
     });
 
