@@ -90,32 +90,6 @@ export class SqliteMigration {
     return this._target;
   }
 
-  private async _planRecreate(
-    pristine: Database,
-    target: Database,
-    table: string,
-    definition: string
-  ) {
-    const currentCols = await this._columns(target, table);
-    const pristineCols = await this._columns(pristine, table);
-
-    const commonCols = currentCols.filter(oldCol =>
-      pristineCols.some(newCol => newCol.name === oldCol.name)
-    );
-
-    this._steps.push({
-      type: 'table',
-      name: table,
-      deferForeignKeys: true,
-      statements: [
-        `ALTER TABLE ${table} RENAME TO ${table}_old`,
-        definition,
-        `INSERT INTO ${table} (${commonCols.map(c => c.name).join(', ')}) SELECT ${commonCols.map(c => c.name).join(', ')} FROM ${table}_old`,
-        `DROP TABLE ${table}_old`,
-      ],
-    });
-  }
-
   private async _isAddOnlyColumns(
     pristine: Database,
     current: Database,
@@ -141,6 +115,7 @@ export class SqliteMigration {
     recreatedTables: Set<string>
   ) {
     const foreignKeyGraph = await this._buildForeignKeyGraph(pristine);
+    const reverseForeignKeyGraph = this._reverseGraph(foreignKeyGraph);
     const currentTables = await this._objects(target, 'table');
     const newTables = await this._objects(pristine, 'table');
 
@@ -164,7 +139,11 @@ export class SqliteMigration {
           name: table,
           statements: [`DROP TABLE ${table}`],
         });
-      } else if (added.includes(table)) {
+      }
+    }
+
+    for (const table of sorted) {
+      if (added.includes(table)) {
         const definition = newTables.get(table);
         if (!definition) {
           throw new Error(`Table ${table} not found in schema definitions.`);
@@ -174,7 +153,11 @@ export class SqliteMigration {
           name: table,
           statements: [definition],
         });
-      } else if (modified.includes(table)) {
+      }
+    }
+
+    for (const table of sorted) {
+      if (modified.includes(table)) {
         const { addOnly, added: addedCols } = await this._isAddOnlyColumns(
           pristine,
           target,
@@ -186,13 +169,60 @@ export class SqliteMigration {
           );
           this._steps.push({ type: 'table', name: table, statements: stmts });
         } else {
-          const definition = newTables.get(table);
-          if (!definition) {
-            throw new Error(`Table ${table} not found in schema definitions.`);
-          }
-          recreatedTables.add(table.toLowerCase());
-          await this._planRecreate(pristine, target, table, definition);
+          this._findDependentTables(table, reverseForeignKeyGraph, recreatedTables);
         }
+      }
+    }
+
+    const recreationOrder = this._topologicalSort([...recreatedTables], foreignKeyGraph);
+    if (recreationOrder.length > 0) {
+      for (const table of recreationOrder) {
+        this._steps.push({
+          type: 'table',
+          name: `migrating ${table} to new schema`,
+          deferForeignKeys: true,
+          statements: [`ALTER TABLE ${table} RENAME TO ${table}_old`],
+        });
+      }
+
+      for (const table of recreationOrder) {
+        const definition = newTables.get(table);
+        if (!definition) {
+          throw new Error(`Table ${table} not found in schema definitions.`);
+        }
+        this._steps.push({
+          type: 'table',
+          name: `preparing new ${table}`,
+          statements: [definition],
+        });
+      }
+
+      for (const table of recreationOrder) {
+        const currentCols = await this._columns(target, table);
+        const pristineCols = await this._columns(pristine, table);
+
+        const commonCols = currentCols.filter(oldCol =>
+          pristineCols.some(newCol => newCol.name === oldCol.name)
+        );
+
+        if (commonCols.length > 0) {
+          this._steps.push({
+            type: 'table',
+            name: `copying data back to ${table}`,
+            statements: [
+              `INSERT INTO ${table} (${commonCols.map(c => c.name).join(', ')}) SELECT ${commonCols.map(c => c.name).join(', ')} FROM ${table}_old`,
+            ],
+          });
+        }
+      }
+
+      const dropOrder = [...recreationOrder].reverse();
+      for (const table of dropOrder) {
+        this._steps.push({
+          type: 'table',
+          name: `dropping old ${table}`,
+          statements: [`DROP TABLE ${table}_old`],
+        });
       }
     }
   }
@@ -275,13 +305,44 @@ export class SqliteMigration {
     return graph;
   }
 
+  private _reverseGraph(graph: Map<string, Set<string>>): Map<string, Set<string>> {
+    const reversed = new Map<string, Set<string>>();
+    for (const [node, dependencies] of graph) {
+      for (const dependency of dependencies) {
+        if (!reversed.has(dependency)) {
+          reversed.set(dependency, new Set());
+        }
+        reversed.get(dependency)!.add(node);
+      }
+    }
+    return reversed;
+  }
+
+  private _findDependentTables(
+    table: string,
+    reverseForeignKeyGraph: Map<string, Set<string>>,
+    dependentTables: Set<string>
+  ) {
+    const visit = (currentTable: string) => {
+      if (dependentTables.has(currentTable)) {
+        return;
+      }
+      dependentTables.add(currentTable);
+      for (const [childTable, referencedTables] of reverseForeignKeyGraph) {
+        if (referencedTables.has(currentTable)) {
+          visit(childTable);
+        }
+      }
+    };
+    visit(table.toLowerCase());
+  }
+
   private _topologicalSort(
     tables: string[],
     foreignKeyGraph: Map<string, Set<string>>
   ): string[] {
     const visited = new Set<string>();
     const result: string[] = [];
-
     const visit = (node: string) => {
       if (visited.has(node)) {
         return;
@@ -292,7 +353,6 @@ export class SqliteMigration {
       }
       result.push(node);
     };
-
     for (const node of tables) {
       visit(node);
     }

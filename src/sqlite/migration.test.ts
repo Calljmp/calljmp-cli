@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { open } from 'sqlite';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { open, Database } from 'sqlite';
 import sqlite3 from 'sqlite3';
 import { SqliteMigration } from './migration';
 
@@ -29,19 +29,19 @@ describe('end-to-end', () => {
 
   it('adds column without recreating table', async () => {
     fromSchema = `
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY,
-        email TEXT NOT NULL
-      );
-    `;
+        CREATE TABLE users (
+          id INTEGER PRIMARY KEY,
+          email TEXT NOT NULL
+        );
+      `;
 
     toSchema = `
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY,
-        email TEXT NOT NULL,
-        username TEXT DEFAULT NULL
-      );
-    `;
+        CREATE TABLE users (
+          id INTEGER PRIMARY KEY,
+          email TEXT NOT NULL,
+          username TEXT DEFAULT NULL
+        );
+      `;
 
     const migrator = await migrateSchemas(fromSchema, toSchema);
 
@@ -53,17 +53,17 @@ describe('end-to-end', () => {
 
   it('recreates table when adding NOT NULL column without default', async () => {
     fromSchema = `
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY
-      );
-    `;
+        CREATE TABLE users (
+          id INTEGER PRIMARY KEY
+        );
+      `;
 
     toSchema = `
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL
-      );
-    `;
+        CREATE TABLE users (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL
+        );
+      `;
 
     const migration = await migrateSchemas(fromSchema, toSchema);
 
@@ -77,21 +77,21 @@ describe('end-to-end', () => {
 
   it('recreates index when table is recreated', async () => {
     fromSchema = `
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY,
-      email TEXT,
-      info TEXT
-    );
-    CREATE INDEX idx_users_email ON users(email);
-  `;
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY,
+        email TEXT,
+        info TEXT
+      );
+      CREATE INDEX idx_users_email ON users(email);
+    `;
 
     toSchema = `
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY,
-      email TEXT
-    );
-    CREATE INDEX idx_users_email ON users(email);
-  `;
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY,
+        email TEXT
+      );
+      CREATE INDEX idx_users_email ON users(email);
+    `;
 
     const migration = await migrateSchemas(fromSchema, toSchema);
     sql = migration.sql();
@@ -104,29 +104,29 @@ describe('end-to-end', () => {
 
   it('recreates trigger when table is recreated', async () => {
     fromSchema = `
-    CREATE TABLE logs (
-      id INTEGER PRIMARY KEY,
-      created_at TEXT,
-      source TEXT
-    );
+      CREATE TABLE logs (
+        id INTEGER PRIMARY KEY,
+        created_at TEXT,
+        source TEXT
+      );
 
-    CREATE TRIGGER trg_logs_insert AFTER INSERT ON logs
-    BEGIN
-      UPDATE logs SET created_at = datetime('now') WHERE id = NEW.id;
-    END;
-  `;
+      CREATE TRIGGER trg_logs_insert AFTER INSERT ON logs
+      BEGIN
+        UPDATE logs SET created_at = datetime('now') WHERE id = NEW.id;
+      END;
+    `;
 
     toSchema = `
-    CREATE TABLE logs (
-      id INTEGER PRIMARY KEY,
-      created_at TEXT
-    );
+      CREATE TABLE logs (
+        id INTEGER PRIMARY KEY,
+        created_at TEXT
+      );
 
-    CREATE TRIGGER trg_logs_insert AFTER INSERT ON logs
-    BEGIN
-      UPDATE logs SET created_at = datetime('now') WHERE id = NEW.id;
-    END;
-  `;
+      CREATE TRIGGER trg_logs_insert AFTER INSERT ON logs
+      BEGIN
+        UPDATE logs SET created_at = datetime('now') WHERE id = NEW.id;
+      END;
+    `;
 
     const migration = await migrateSchemas(fromSchema, toSchema);
     sql = migration.sql();
@@ -139,23 +139,23 @@ describe('end-to-end', () => {
 
   it('recreates view when table is recreated', async () => {
     fromSchema = `
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY,
-      email TEXT,
-      username TEXT
-    );
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY,
+        email TEXT,
+        username TEXT
+      );
 
-    CREATE VIEW user_emails AS SELECT email FROM users;
-  `;
+      CREATE VIEW user_emails AS SELECT email FROM users;
+    `;
 
     toSchema = `
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY,
-      email TEXT
-    );
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY,
+        email TEXT
+      );
 
-    CREATE VIEW user_emails AS SELECT email FROM users;
-  `;
+      CREATE VIEW user_emails AS SELECT email FROM users;
+    `;
 
     const migration = await migrateSchemas(fromSchema, toSchema);
     sql = migration.sql();
@@ -168,19 +168,19 @@ describe('end-to-end', () => {
 
   it('adds new index without drop', async () => {
     fromSchema = `
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY,
-      email TEXT
-    );
-  `;
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY,
+        email TEXT
+      );
+    `;
 
     toSchema = `
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY,
-      email TEXT
-    );
-    CREATE INDEX idx_users_email ON users(email);
-  `;
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY,
+        email TEXT
+      );
+      CREATE INDEX idx_users_email ON users(email);
+    `;
 
     const migration = await migrateSchemas(fromSchema, toSchema);
     sql = migration.sql();
@@ -192,23 +192,23 @@ describe('end-to-end', () => {
 
   it('adds new trigger without drop', async () => {
     fromSchema = `
-    CREATE TABLE audit (
-      id INTEGER PRIMARY KEY,
-      action TEXT
-    );
-  `;
+      CREATE TABLE audit (
+        id INTEGER PRIMARY KEY,
+        action TEXT
+      );
+    `;
 
     toSchema = `
-    CREATE TABLE audit (
-      id INTEGER PRIMARY KEY,
-      action TEXT
-    );
+      CREATE TABLE audit (
+        id INTEGER PRIMARY KEY,
+        action TEXT
+      );
 
-    CREATE TRIGGER trg_audit_insert AFTER INSERT ON audit
-    BEGIN
-      UPDATE audit SET action = 'created' WHERE id = NEW.id;
-    END;
-  `;
+      CREATE TRIGGER trg_audit_insert AFTER INSERT ON audit
+      BEGIN
+        UPDATE audit SET action = 'created' WHERE id = NEW.id;
+      END;
+    `;
 
     const migration = await migrateSchemas(fromSchema, toSchema);
     sql = migration.sql();
@@ -220,20 +220,20 @@ describe('end-to-end', () => {
 
   it('adds new view without drop', async () => {
     fromSchema = `
-    CREATE TABLE products (
-      id INTEGER PRIMARY KEY,
-      name TEXT
-    );
-  `;
+      CREATE TABLE products (
+        id INTEGER PRIMARY KEY,
+        name TEXT
+      );
+    `;
 
     toSchema = `
-    CREATE TABLE products (
-      id INTEGER PRIMARY KEY,
-      name TEXT
-    );
+      CREATE TABLE products (
+        id INTEGER PRIMARY KEY,
+        name TEXT
+      );
 
-    CREATE VIEW product_names AS SELECT name FROM products;
-  `;
+      CREATE VIEW product_names AS SELECT name FROM products;
+    `;
 
     const migration = await migrateSchemas(fromSchema, toSchema);
     sql = migration.sql();
@@ -246,7 +246,12 @@ describe('end-to-end', () => {
   });
 
   describe('runtime', async () => {
-    const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+    let db: Database;
+
+    beforeEach(async () => {
+      db = await open({ filename: ':memory:', driver: sqlite3.Database });
+      await db.exec('PRAGMA foreign_keys = ON;');
+    });
 
     it('should not drop child data when renaming parent table', async () => {
       fromSchema = `
@@ -261,6 +266,20 @@ describe('end-to-end', () => {
         parent_id INTEGER,
         FOREIGN KEY (parent_id) REFERENCES parent(id) ON DELETE CASCADE
       );
+
+      CREATE TABLE child2 (
+        id INTEGER PRIMARY KEY,
+        parent_id INTEGER,
+        type TEXT,
+        FOREIGN KEY (parent_id) REFERENCES parent(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE child3 (
+        id INTEGER PRIMARY KEY,
+        child_id INTEGER,
+        description TEXT,
+        FOREIGN KEY (child_id) REFERENCES child(id) ON DELETE CASCADE
+      );
     `;
 
       toSchema = `
@@ -273,6 +292,20 @@ describe('end-to-end', () => {
         id INTEGER PRIMARY KEY,
         parent_id INTEGER,
         FOREIGN KEY (parent_id) REFERENCES parent(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE child2 (
+        id INTEGER PRIMARY KEY,
+        parent_id INTEGER,
+        type TEXT,
+        FOREIGN KEY (parent_id) REFERENCES parent(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE child3 (
+        id INTEGER PRIMARY KEY,
+        child_id INTEGER,
+        description TEXT,
+        FOREIGN KEY (child_id) REFERENCES child(id) ON DELETE CASCADE
       );
     `;
 
@@ -296,6 +329,14 @@ describe('end-to-end', () => {
       INSERT INTO child (id, parent_id) VALUES (3, 2);
       INSERT INTO child (id, parent_id) VALUES (4, 3);
       INSERT INTO child (id, parent_id) VALUES (5, 3);
+      INSERT INTO child2 (id, parent_id, type) VALUES (1, 1, 'type_a');
+      INSERT INTO child2 (id, parent_id, type) VALUES (2, 2, 'type_b');
+      INSERT INTO child2 (id, parent_id, type) VALUES (3, 2, 'type_a');
+      INSERT INTO child2 (id, parent_id, type) VALUES (4, 3, 'type_c');
+      INSERT INTO child3 (id, child_id, description) VALUES (1, 1, 'desc_1');
+      INSERT INTO child3 (id, child_id, description) VALUES (2, 2, 'desc_2');
+      INSERT INTO child3 (id, child_id, description) VALUES (3, 4, 'desc_3');
+      INSERT INTO child3 (id, child_id, description) VALUES (4, 5, 'desc_4');
       `);
 
       await db.exec(sql);
@@ -314,6 +355,22 @@ describe('end-to-end', () => {
         { id: 3, parent_id: 2 },
         { id: 4, parent_id: 3 },
         { id: 5, parent_id: 3 },
+      ]);
+
+      const child2Rows = await db.all('SELECT * FROM child2');
+      expect(child2Rows).toEqual([
+        { id: 1, parent_id: 1, type: 'type_a' },
+        { id: 2, parent_id: 2, type: 'type_b' },
+        { id: 3, parent_id: 2, type: 'type_a' },
+        { id: 4, parent_id: 3, type: 'type_c' },
+      ]);
+
+      const child3Rows = await db.all('SELECT * FROM child3');
+      expect(child3Rows).toEqual([
+        { id: 1, child_id: 1, description: 'desc_1' },
+        { id: 2, child_id: 2, description: 'desc_2' },
+        { id: 3, child_id: 4, description: 'desc_3' },
+        { id: 4, child_id: 5, description: 'desc_4' },
       ]);
     });
   });
