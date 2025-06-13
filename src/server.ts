@@ -160,8 +160,29 @@ export async function buildWithLocalHandler(module: string) {
         headers.set('X-Calljmp-Args', JSON.stringify(args));
 
         const request = new Request(targetUrl, {
-          ...originalRequest,
           headers,
+          method: originalRequest.method,
+          body: originalRequest.body,
+          redirect: originalRequest.redirect,
+          cf: originalRequest.cf,
+          integrity: originalRequest.integrity,
+          signal: originalRequest.signal,
+          encodeResponseBody: originalRequest.encodeResponseBody,
+          fetcher: originalRequest.fetcher
+        });
+
+        console.debug('Forwarding request to service:', {
+          method: originalRequest.method,
+          url: originalRequest.url,
+          headers: Object.fromEntries(originalRequest.headers.entries()),
+        });
+
+        console.debug('Service args:', args);
+
+        console.debug('Service request:', {
+          method: request.method,
+          url: request.url,
+          headers: Object.fromEntries(request.headers.entries()),
         });
 
         return service.fetch(request, ...opts);

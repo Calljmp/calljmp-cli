@@ -13,21 +13,21 @@ export abstract class CloudService<E extends CloudServiceEnv = CloudServiceEnv> 
   private _context?: CloudServiceContext;
   private _env?: E;
 
-  protected get context() {
+  get context() {
     if (!this._context) {
       throw new Error("Context is only available after fetch");
     }
     return this._context;
   }
 
-  protected get database() {
+  get database() {
     if (!this._env) {
       throw new Error("Environment not set");
     }
     return this._env.db;
   }
 
-  protected get buckets() {
+  get buckets() {
     if (!this._env) {
       throw new Error("Environment not set");
     }
@@ -40,7 +40,7 @@ export abstract class CloudService<E extends CloudServiceEnv = CloudServiceEnv> 
     };
   }
 
-  protected get secrets() {
+  get secrets() {
     if (!this._env) {
       throw new Error("Environment not set");
     }
@@ -51,7 +51,7 @@ export abstract class CloudService<E extends CloudServiceEnv = CloudServiceEnv> 
     };
   }
 
-  protected get variables() {
+  get variables() {
     if (!this._env) {
       throw new Error("Environment not set");
     }

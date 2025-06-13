@@ -169,12 +169,19 @@ export class SqliteMigration {
           );
           this._steps.push({ type: 'table', name: table, statements: stmts });
         } else {
-          this._findDependentTables(table, reverseForeignKeyGraph, recreatedTables);
+          this._findDependentTables(
+            table,
+            reverseForeignKeyGraph,
+            recreatedTables
+          );
         }
       }
     }
 
-    const recreationOrder = this._topologicalSort([...recreatedTables], foreignKeyGraph);
+    const recreationOrder = this._topologicalSort(
+      [...recreatedTables],
+      foreignKeyGraph
+    );
     if (recreationOrder.length > 0) {
       for (const table of recreationOrder) {
         this._steps.push({
@@ -305,7 +312,9 @@ export class SqliteMigration {
     return graph;
   }
 
-  private _reverseGraph(graph: Map<string, Set<string>>): Map<string, Set<string>> {
+  private _reverseGraph(
+    graph: Map<string, Set<string>>
+  ): Map<string, Set<string>> {
     const reversed = new Map<string, Set<string>>();
     for (const [node, dependencies] of graph) {
       for (const dependency of dependencies) {

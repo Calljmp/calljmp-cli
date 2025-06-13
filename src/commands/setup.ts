@@ -92,7 +92,7 @@ const setup = () =>
         },
       ]);
 
-      logger.info(chalk.blue('Synchronizing service bindings...'));
+      logger.info(chalk.dim('Synchronizing service bindings...'));
       const bindings = await project.bindings({
         projectId: cfg.projectId,
       });

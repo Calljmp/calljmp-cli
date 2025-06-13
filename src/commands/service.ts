@@ -165,7 +165,7 @@ const bindings = () =>
         accessToken: cfg.accessToken,
       });
 
-      const spinner = ora('Synchronizing service bindings...').start();
+      logger.info(chalk.dim('Synchronizing service bindings...'));
       try {
         const bindings = await project.bindings({
           projectId: cfg.projectId,
@@ -180,14 +180,9 @@ const bindings = () =>
           entry: cfg.entry,
           buckets: cfg.bindings?.buckets,
         });
-
-        spinner.succeed('Service bindings synchronized');
       } catch (e: any) {
-        spinner.fail('Failed to synchronize service bindings');
-        logger.error(e);
+        logger.error(chalk.red('Failed to synchronize service bindings'), e);
         process.exit(1);
-      } finally {
-        spinner.stop();
       }
     });
 
