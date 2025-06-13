@@ -171,20 +171,6 @@ export async function buildWithLocalHandler(module: string) {
           fetcher: originalRequest.fetcher
         });
 
-        console.debug('Forwarding request to service:', {
-          method: originalRequest.method,
-          url: originalRequest.url,
-          headers: Object.fromEntries(originalRequest.headers.entries()),
-        });
-
-        console.debug('Service args:', args);
-
-        console.debug('Service request:', {
-          method: request.method,
-          url: request.url,
-          headers: Object.fromEntries(request.headers.entries()),
-        });
-
         return service.fetch(request, ...opts);
       }
     }
