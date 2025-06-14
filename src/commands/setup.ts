@@ -7,8 +7,13 @@ import chalk from 'chalk';
 import { Account } from '../account';
 import logger from '../logger';
 import { Project } from '../project';
-import { Project as ProjectData } from '../common';
+import {
+  Project as ProjectData,
+  ServiceError,
+  ServiceErrorCode,
+} from '../common';
 import path from 'path';
+import retry from '../retry';
 
 const setup = () =>
   new Command('setup')
@@ -93,9 +98,30 @@ const setup = () =>
       ]);
 
       logger.info(chalk.dim('Synchronizing service bindings...'));
-      const bindings = await project.bindings({
-        projectId: cfg.projectId,
-      });
+      const bindings = await retry(
+        () =>
+          project.bindings({
+            projectId: cfg.projectId!,
+          }),
+        {
+          retries: 10,
+          delay: 3000,
+          shouldRetry: (error, attempt, total) => {
+            if (
+              error instanceof ServiceError &&
+              error.code === ServiceErrorCode.ResourceBusy
+            ) {
+              logger.warn(
+                chalk.yellow(
+                  `Project is being provisioned, waiting (${attempt + 1}/${total})...`
+                )
+              );
+              return true;
+            }
+            return false;
+          },
+        }
+      );
 
       function printBindingsTree(
         bindings: Record<string, unknown>,

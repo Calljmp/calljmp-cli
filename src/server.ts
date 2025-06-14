@@ -167,7 +167,6 @@ export async function buildWithLocalHandler(module: string) {
           cf: originalRequest.cf,
           integrity: originalRequest.integrity,
           signal: originalRequest.signal,
-          encodeResponseBody: originalRequest.encodeResponseBody,
           fetcher: originalRequest.fetcher
         });
 
