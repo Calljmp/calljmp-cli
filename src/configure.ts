@@ -26,7 +26,7 @@ export async function configureIgnores({
       throw error;
     }
     // .gitignore doesn't exist, we'll create a new one
-    logger.info(chalk.blue('Creating new .gitignore'));
+    logger.info(chalk.yellow('Creating new .gitignore'));
   }
 
   const lines = gitIgnoreContent.split('\n');
@@ -47,7 +47,7 @@ export async function configureIgnores({
         gitIgnoreContent += '\n';
       }
       gitIgnoreContent += `${entry}\n`;
-      logger.info(chalk.blue(`Adding ${entry} to .gitignore`));
+      logger.info(chalk.yellow(`Adding ${entry} to .gitignore`));
       contentUpdated = true;
     }
   }
@@ -96,6 +96,8 @@ export async function configureService({
     .filter(key => key.toUpperCase().startsWith('SECRET_'))
     .map(key => key.toUpperCase().replace('SECRET_', ''));
 
+  await fs.mkdir(path.dirname(service), { recursive: true });
+
   const serviceContent = await template('service.hbr', {
     variables,
     secrets,
@@ -105,7 +107,7 @@ export async function configureService({
     })),
   });
   await fs.writeFile(service, serviceContent, 'utf-8');
-  logger.info(chalk.blue(`Generating ${path.basename(service)}`));
+  logger.info(chalk.yellow(`Generating ${path.basename(service)}`));
 
   const typesContent = await Promise.all([
     template('service-types.hbr', {
@@ -116,7 +118,7 @@ export async function configureService({
     template('cf-types.hbr'),
   ]);
   await fs.writeFile(types, typesContent.join('\n\n'), 'utf-8');
-  logger.info(chalk.blue(`Generating ${path.basename(types)}`));
+  logger.info(chalk.yellow(`Generating ${path.basename(types)}`));
 
   const exists = await fs
     .access(entry, fs.constants.R_OK)
@@ -125,7 +127,7 @@ export async function configureService({
   if (!exists) {
     const entryContent = await template('entry.hbr');
     await fs.writeFile(entry, entryContent, 'utf-8');
-    logger.info(chalk.blue(`Generating ${path.basename(entry)}`));
+    logger.info(chalk.yellow(`Generating ${path.basename(entry)}`));
   }
 }
 

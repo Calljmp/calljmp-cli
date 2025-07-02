@@ -98,7 +98,6 @@ export class Project {
     }
 
     const result = (await response.json()) as Record<string, any>;
-
     return jsonToProject(result);
   }
 
@@ -245,5 +244,68 @@ export class Project {
     };
 
     return result;
+  }
+
+  async retrieve({ projectId }: { projectId: number }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+
+    const result = (await response.json()) as Record<string, any>;
+    return jsonToProject(result);
+  }
+
+  async update({
+    projectId,
+    appleIosTeamId,
+    appleIosBundleId,
+    googleAndroidPackageName,
+    googleAndroidPlayIntegrityResponseKeys,
+  }: {
+    projectId: number;
+    appleIosTeamId?: string;
+    appleIosBundleId?: string;
+    googleAndroidPackageName?: string;
+    googleAndroidPlayIntegrityResponseKeys?: string;
+  }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          appleIosTeamId,
+          appleIosBundleId,
+          googleAndroidPackageName,
+          googleAndroidPlayIntegrityResponseKeys,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+
+    const result = (await response.json()) as Record<string, any>;
+    return jsonToProject(result);
   }
 }

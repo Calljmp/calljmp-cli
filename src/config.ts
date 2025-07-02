@@ -5,9 +5,9 @@ import fs from 'fs/promises';
 export const ConfigDefaults = {
   baseUrl: 'https://api.calljmp.com',
   project: '.',
-  module: './src/service',
-  migrations: './src/service/migrations',
-  schema: './src/service/schema',
+  module: './service',
+  migrations: './service/migrations',
+  schema: './service/schema',
 };
 
 export interface PersistentConfig {

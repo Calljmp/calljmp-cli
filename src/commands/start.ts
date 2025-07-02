@@ -71,7 +71,7 @@ async function serve({
         accessToken: cfg.accessToken,
       });
 
-      logger.info(chalk.blue('Retrieving service bindings...'));
+      logger.info(chalk.dim('Synchronizing service bindings...'));
       try {
         const bindings = await project.bindings({
           projectId: cfg.projectId,
@@ -93,14 +93,15 @@ async function serve({
               value !== null &&
               !Array.isArray(value)
             ) {
-              console.log(`${indent}${prefix}${key}`);
+              logger.info(`${indent}${chalk.dim(prefix)}${key}`);
               printBindingsTree(value as Record<string, unknown>, nextIndent);
             } else {
-              console.log(`${indent}${prefix}${key}: ${value}`);
+              logger.info(`${indent}${chalk.dim(prefix)}${key}: ${value}`);
             }
           });
         }
 
+        logger.info('Service bindings');
         printBindingsTree(bindings);
 
         await configureService({
@@ -110,8 +111,10 @@ async function serve({
           entry: cfg.entry,
           buckets: cfg.bindings?.buckets,
         });
-      } catch (e: any) {
-        logger.error(chalk.red('Failed to synchronize service bindings'), e);
+      } catch {
+        logger.error(
+          chalk.red('Failed to synchronize service bindings. Please try again.')
+        );
       }
     }
   };

@@ -14,6 +14,8 @@ import {
 } from '../common';
 import path from 'path';
 import retry from '../retry';
+import * as ios from '../ios';
+import * as android from '../android';
 
 const setup = () =>
   new Command('setup')
@@ -50,6 +52,181 @@ const setup = () =>
         }
       }
       cfg.projectId = selectedProject.id;
+
+      // wait for project to be provisioned
+      {
+        const spinner = ora(
+          chalk.blue('Waiting for project to be provisioned...')
+        ).start();
+        try {
+          await retry(() => project.retrieve({ projectId: cfg.projectId! }), {
+            retries: 10,
+            delay: 3000,
+            shouldRetry: error => {
+              if (
+                error instanceof ServiceError &&
+                error.code === ServiceErrorCode.ResourceBusy
+              ) {
+                return true;
+              }
+              return false;
+            },
+          });
+          spinner.stop();
+        } catch (error) {
+          spinner.fail(
+            chalk.red(
+              'Timed out waiting for project to be provisioned! Please try again later.'
+            )
+          );
+          logger.error(error);
+          process.exit(1);
+        }
+      }
+
+      const iosProjectInfo = await ios
+        .resolveProjectInfo({ projectDirectory: cfg.project })
+        .catch(() => null);
+      if (iosProjectInfo) {
+        let bundleId: string | undefined = iosProjectInfo.bundleId;
+        let teamId: string | undefined = iosProjectInfo.teamId;
+
+        const promptForBundleId = () =>
+          enquirer.prompt<{
+            newBundleId: string;
+          }>({
+            type: 'input',
+            name: 'newBundleId',
+            message: 'Enter iOS Bundle ID (or leave blank to skip):',
+            initial: bundleId,
+            validate: (value: string) => {
+              if (!value) return true; // allow skip
+              if (!/^[a-zA-Z0-9.-]+$/.test(value)) {
+                return 'Invalid iOS Bundle ID format';
+              }
+              return true;
+            },
+          });
+
+        const promptForTeamId = () =>
+          enquirer.prompt<{ newTeamId: string }>({
+            type: 'input',
+            name: 'newTeamId',
+            message: 'Enter Apple Team ID (or leave blank to skip):',
+            initial: teamId,
+            validate: (value: string) => {
+              if (!value) return true; // allow skip
+              if (!/^[A-Z0-9]{10}$/.test(value)) {
+                return 'Invalid Apple Team ID format';
+              }
+              return true;
+            },
+          });
+
+        const { confirmBundleId } = await enquirer.prompt<{
+          confirmBundleId: boolean;
+        }>({
+          type: 'confirm',
+          name: 'confirmBundleId',
+          message: `iOS Bundle ID: ${bundleId}. Use this value?`,
+          initial: true,
+        });
+
+        if (!confirmBundleId) {
+          const { newBundleId } = await promptForBundleId();
+          bundleId = newBundleId || undefined;
+        }
+
+        if (teamId) {
+          const { confirmTeamId } = await enquirer.prompt<{
+            confirmTeamId: boolean;
+          }>({
+            type: 'confirm',
+            name: 'confirmTeamId',
+            message: `Apple Team ID: ${teamId}. Use this value?`,
+            initial: true,
+          });
+          if (!confirmTeamId) {
+            const { newTeamId } = await promptForTeamId();
+            teamId = newTeamId || undefined;
+          }
+        } else {
+          const { newTeamId } = await promptForTeamId();
+          teamId = newTeamId || undefined;
+        }
+
+        if (teamId || bundleId) {
+          const spinner = ora(chalk.blue('Configuring iOS project...')).start();
+          try {
+            selectedProject = await project.update({
+              projectId: cfg.projectId!,
+              appleIosTeamId: teamId,
+              appleIosBundleId: bundleId,
+            });
+            spinner.stop();
+          } catch (error) {
+            spinner.fail(chalk.red('Failed to configure iOS project!'));
+            logger.error(error);
+            process.exit(1);
+          }
+        }
+      }
+
+      const androidProjectInfo = await android
+        .resolveProjectInfo({ projectDirectory: cfg.project })
+        .catch(() => null);
+      if (androidProjectInfo) {
+        let applicationId: string | undefined =
+          androidProjectInfo.applicationId;
+
+        const promptForApplicationId = () =>
+          enquirer.prompt<{
+            newApplicationId: string;
+          }>({
+            type: 'input',
+            name: 'newApplicationId',
+            message: 'Enter Android Application ID (or leave blank to skip):',
+            initial: applicationId,
+            validate: (value: string) => {
+              if (!value) return true; // allow skip
+              if (!/^[a-zA-Z0-9._-]+$/.test(value)) {
+                return 'Invalid Android Application ID format';
+              }
+              return true;
+            },
+          });
+
+        const { confirmApplicationId } = await enquirer.prompt<{
+          confirmApplicationId: boolean;
+        }>({
+          type: 'confirm',
+          name: 'confirmApplicationId',
+          message: `Android Application ID: ${applicationId}. Use this value?`,
+          initial: true,
+        });
+
+        if (!confirmApplicationId) {
+          const { newApplicationId } = await promptForApplicationId();
+          applicationId = newApplicationId || undefined;
+        }
+
+        if (applicationId) {
+          const spinner = ora(
+            chalk.blue('Configuring Android project...')
+          ).start();
+          try {
+            selectedProject = await project.update({
+              projectId: cfg.projectId!,
+              googleAndroidPackageName: applicationId,
+            });
+            spinner.stop();
+          } catch (error) {
+            spinner.fail(chalk.red('Failed to configure Android project!'));
+            logger.error(error);
+            process.exit(1);
+          }
+        }
+      }
 
       const { module, migrations, schema } = await enquirer.prompt<{
         module: string;
@@ -97,31 +274,22 @@ const setup = () =>
         },
       ]);
 
-      logger.info(chalk.dim('Synchronizing service bindings...'));
-      const bindings = await retry(
-        () =>
-          project.bindings({
+      let bindings: Record<string, unknown> = {};
+      {
+        const spinner = ora(
+          chalk.blue('Synchronizing service bindings...')
+        ).start();
+        try {
+          bindings = await project.bindings({
             projectId: cfg.projectId!,
-          }),
-        {
-          retries: 10,
-          delay: 3000,
-          shouldRetry: (error, attempt, total) => {
-            if (
-              error instanceof ServiceError &&
-              error.code === ServiceErrorCode.ResourceBusy
-            ) {
-              logger.warn(
-                chalk.yellow(
-                  `Project is being provisioned, waiting (${attempt + 1}/${total})...`
-                )
-              );
-              return true;
-            }
-            return false;
-          },
+          });
+          spinner.stop();
+        } catch (error) {
+          spinner.fail(chalk.red('Failed to synchronize service bindings!'));
+          logger.error(error);
+          process.exit(1);
         }
-      );
+      }
 
       function printBindingsTree(
         bindings: Record<string, unknown>,
@@ -137,14 +305,15 @@ const setup = () =>
             value !== null &&
             !Array.isArray(value)
           ) {
-            console.log(`${indent}${prefix}${key}`);
+            logger.info(`${indent}${chalk.dim(prefix)}${key}`);
             printBindingsTree(value as Record<string, unknown>, nextIndent);
           } else {
-            console.log(`${indent}${prefix}${key}: ${value}`);
+            logger.info(`${indent}${chalk.dim(prefix)}${key}: ${value}`);
           }
         });
       }
 
+      logger.info('Service bindings');
       printBindingsTree(bindings);
 
       cfg.module = path.resolve(cfg.project, module);
@@ -169,8 +338,6 @@ const setup = () =>
     });
 
 async function createProject({ project }: { project: Project }) {
-  logger.info(chalk.blue('Creating new project...'));
-
   const { name, description } = await enquirer.prompt<{
     name: string;
     description?: string;
@@ -197,17 +364,27 @@ async function createProject({ project }: { project: Project }) {
     },
   ]);
 
-  const spinner = ora(chalk.yellow('Creating project...')).start();
+  const spinner = ora(chalk.blue('Creating project...')).start();
   try {
     const result = await project.create({
       name,
       description: description || undefined,
     });
-    spinner.succeed(chalk.green('Project created.'));
+    spinner.stop();
     return result;
   } catch (error) {
+    if (
+      error instanceof ServiceError &&
+      error.code === ServiceErrorCode.ProjectAlreadyExists
+    ) {
+      spinner.fail(
+        chalk.red('Project with this name exists or recently deleted!')
+      );
+      return createProject({ project });
+    }
     spinner.fail(chalk.red('Failed to create project!'));
-    throw error;
+    logger.error(error);
+    process.exit(1);
   }
 }
 
@@ -221,8 +398,8 @@ async function selectProject({
   const { projects, nextOffset } = await project.list({ offset });
 
   if (projects.length === 0) {
-    logger.error(chalk.red('No projects found!'));
-    return;
+    logger.info(chalk.yellow('Create a new project to get started!'));
+    return undefined;
   }
 
   const choices = [
@@ -238,6 +415,10 @@ async function selectProject({
           },
         ]
       : []),
+    {
+      name: 'Create new project',
+      value: -2,
+    },
   ];
 
   const selection = await enquirer.prompt<{
@@ -256,6 +437,10 @@ async function selectProject({
     });
   }
 
+  if (selection.value === -2) {
+    return undefined;
+  }
+
   const result = projects.find(project => project.name === selection.value);
   if (!result) {
     logger.error(chalk.red('Project not found!'));
@@ -269,13 +454,13 @@ async function login(account: Account) {
   let requestId: string | undefined;
 
   {
-    const spinner = ora(chalk.yellow('Requesting authorization...')).start();
+    const spinner = ora(chalk.blue('Requesting authorization...')).start();
     try {
       const { requestId: id, authorizationUrl } = await account.requestAccess();
       requestId = id;
-      spinner.succeed(chalk.green('Authorization requested.'));
+      spinner.stop();
       logger.info('Open the following URL to authorize CLI:');
-      logger.info(chalk.blue(authorizationUrl));
+      logger.info(chalk.yellow(authorizationUrl));
     } catch {
       spinner.fail(chalk.red('Failed to request authorization!'));
       return;
@@ -283,10 +468,10 @@ async function login(account: Account) {
   }
 
   {
-    const spinner = ora(chalk.yellow('Waiting for authorization...')).start();
+    const spinner = ora(chalk.blue('Waiting for authorization...')).start();
     try {
       const result = await account.pollAccess(requestId);
-      spinner.succeed(chalk.green('Authorized.'));
+      spinner.stop();
       return result;
     } catch {
       spinner.fail(chalk.red('Authorization failed!'));
