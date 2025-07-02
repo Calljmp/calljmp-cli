@@ -308,4 +308,30 @@ export class Project {
     const result = (await response.json()) as Record<string, any>;
     return jsonToProject(result);
   }
+
+  async retrieveGoogleAndroidPlayIntegrityPem({
+    projectId,
+  }: {
+    projectId: number;
+  }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}/google/android/play-integrity-key`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+
+    const pemContent = await response.text();
+    return pemContent;
+  }
 }
