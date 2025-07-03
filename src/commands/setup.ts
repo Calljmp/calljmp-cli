@@ -20,6 +20,7 @@ import * as fs from 'fs/promises';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import os from 'os';
+import { detectProjectType, ProjectType } from '../mobile';
 
 const execAsync = promisify(exec);
 
@@ -807,6 +808,68 @@ async function login(account: Account) {
   }
 }
 
+function printUsageInstructions(directory: string) {
+  const projectType = detectProjectType(directory);
+
+  switch (projectType) {
+    case ProjectType.ReactNative: {
+      logger.info(
+        chalk.green(
+          '\nYou can now use the Calljmp SDK in your React Native app.\n' +
+            'Follow the instructions below to get started:\n'
+        )
+      );
+      logger.info(
+        chalk.cyan.bold('1.') +
+          chalk.cyan(' Install the Calljmp SDK:\n') +
+          chalk.green('   npm install @calljmp/react-native\n') +
+          chalk.green('   # or\n') +
+          chalk.green('   yarn add @calljmp/react-native\n')
+      );
+      logger.info(
+        chalk.cyan.bold('2.') +
+          chalk.cyan(' Import and initialize Calljmp in your app:\n') +
+          chalk.yellow(
+            "   import { Calljmp } from '@calljmp/react-native';\n"
+          ) +
+          chalk.yellow('   const calljmp = new Calljmp();\n')
+      );
+      break;
+    }
+    case ProjectType.Flutter: {
+      logger.info(
+        chalk.green(
+          '\nYou can now use the Calljmp SDK in your Flutter app.\n' +
+            'Follow the instructions below to get started:\n'
+        )
+      );
+      logger.info(
+        chalk.cyan.bold('1.') +
+          chalk.cyan(' Add the Calljmp SDK to your pubspec.yaml:\n') +
+          chalk.green('   dependencies:\n') +
+          chalk.green('     calljmp: ^latest\n')
+      );
+      logger.info(
+        chalk.cyan.bold('2.') +
+          chalk.cyan(' Install the dependencies:\n') +
+          chalk.green('   flutter pub get\n')
+      );
+      logger.info(
+        chalk.cyan.bold('3.') +
+          chalk.cyan(' Import and initialize Calljmp in your app:\n') +
+          chalk.yellow("   import 'package:calljmp/calljmp.dart';\n") +
+          chalk.yellow('   final calljmp = Calljmp();\n')
+      );
+      break;
+    }
+    default: {
+      logger.info(
+        chalk.green('\nYou can now start using Calljmp in your mobile app.\n')
+      );
+    }
+  }
+}
+
 const setup = () =>
   new Command('setup')
     .description('Setup environment, account, and project.')
@@ -891,7 +954,7 @@ const setup = () =>
         entries: ['.calljmp', '.service.env', '.env'],
       });
 
-      logger.info(chalk.dim('You can now start building your application.\n'));
+      printUsageInstructions(cfg.project);
     });
 
 export default setup;
