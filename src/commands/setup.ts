@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import buildConfig, { ConfigOptions, writeConfig } from '../config';
-import { configureIgnores, configureService } from '../configure';
+import { configureIgnores } from '../configure';
 import enquirer from 'enquirer';
 import ora from 'ora';
 import chalk from 'chalk';
@@ -889,14 +889,6 @@ const setup = () =>
       await configureIgnores({
         directory: cfg.project,
         entries: ['.calljmp', '.service.env', '.env'],
-      });
-
-      await configureService({
-        directory: cfg.project,
-        service: cfg.service,
-        entry: cfg.entry,
-        types: cfg.types,
-        buckets: cfg.bindings?.buckets,
       });
 
       logger.info(chalk.dim('You can now start building your application.\n'));
