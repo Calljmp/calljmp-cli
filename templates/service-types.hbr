@@ -2,24 +2,32 @@
 
 /* eslint-disable */
 
-declare namespace Calljmp {
+export * from '@calljmp/service';
+
+declare module '@calljmp/service' {
   interface CloudServiceEnv {
-    db: D1Database;
-    {{#each buckets}}
-    {{this}}: R2Bucket;
-    {{/each}}
+    {{#if buckets}}
+    buckets: {
+      {{#each buckets}}
+      {{name}}: R2Bucket;
+      {{/each}}
+    };
+    {{/if}}
 
-    // Variables
-    DEVELOPMENT?: boolean;
-    {{#each variables}}
-    {{this}}: string;
-    {{/each}}
+    {{#if secrets}}
+    secrets: {
+      {{#each secrets}}
+      {{camelCase this}}: string;
+      {{/each}}
+    };
+    {{/if}}
 
-    // Secrets
-    {{#each secrets}}
-    {{this}}: string;
-    {{/each}}
-  };
+    {{#if variables}}
+    variables: {
+      {{#each variables}}
+      {{camelCase this}}: string;
+      {{/each}}
+    };
+    {{/if}}
+  }
 }
-
-interface CloudServiceEnv extends Calljmp.CloudServiceEnv {}

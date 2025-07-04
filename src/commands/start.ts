@@ -42,14 +42,6 @@ async function serve({
 }) {
   let abortController: AbortController | null = null;
 
-  await configureService({
-    directory: cfg.project,
-    service: cfg.service,
-    types: cfg.types,
-    entry: cfg.entry,
-    buckets: cfg.bindings?.buckets,
-  });
-
   const handleKeypress = async (str: string, key: any) => {
     if (key.name === 'c') {
       logger.info(chalk.dim('Stopping server...'));
@@ -106,8 +98,6 @@ async function serve({
 
         await configureService({
           directory: cfg.project,
-          service: cfg.service,
-          types: cfg.types,
           entry: cfg.entry,
           buckets: cfg.bindings?.buckets,
         });
@@ -135,6 +125,12 @@ async function serve({
         // Give some time for the previous server to shut down
         await new Promise(resolve => setTimeout(resolve, 250));
       }
+
+      await configureService({
+        directory: cfg.project,
+        entry: cfg.entry,
+        buckets: cfg.bindings?.buckets,
+      });
 
       abortController = new AbortController();
       const { signal } = abortController;

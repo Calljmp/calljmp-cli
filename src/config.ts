@@ -27,8 +27,6 @@ export interface Config extends PersistentConfig {
   module: string;
   data: string;
   entry: string;
-  service: string;
-  types: string;
   migrations: string;
   schema: string;
 }
@@ -70,8 +68,6 @@ async function buildConfig({
     migrations: migrationsDirectory,
     schema: schemaDirectory,
     entry: path.join(moduleDirectory, 'main.ts'),
-    service: path.join(moduleDirectory, 'service.ts'),
-    types: path.join(moduleDirectory, 'service-types.d.ts'),
   };
 }
 

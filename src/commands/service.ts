@@ -174,8 +174,6 @@ const bindings = () =>
 
         await configureService({
           directory: cfg.project,
-          service: cfg.service,
-          types: cfg.types,
           entry: cfg.entry,
           buckets: cfg.bindings?.buckets,
         });
@@ -193,8 +191,6 @@ const generate = () =>
       const cfg = await buildConfig(args);
       await configureService({
         directory: cfg.project,
-        service: cfg.service,
-        types: cfg.types,
         entry: cfg.entry,
         buckets: cfg.bindings?.buckets,
       });

@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import buildConfig, { ConfigOptions, writeConfig } from '../config';
-import { configureIgnores } from '../configure';
+import { configureDependencies } from '../configure';
 import enquirer from 'enquirer';
 import ora from 'ora';
 import chalk from 'chalk';
@@ -934,6 +934,8 @@ const setup = () =>
         });
       }
 
+      await configureDependencies({ directory: cfg.project });
+
       const { module, migrations, schema } =
         await configureServiceDirectories(cfg);
 
@@ -948,11 +950,6 @@ const setup = () =>
       cfg.bindings = bindings;
 
       await writeConfig(cfg);
-
-      await configureIgnores({
-        directory: cfg.project,
-        entries: ['.calljmp', '.service.env', '.env'],
-      });
 
       printUsageInstructions(cfg.project);
     });

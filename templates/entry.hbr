@@ -1,7 +1,7 @@
-import { CloudService } from './service';
+import { CloudService } from '@calljmp/service';
 
 class AppCloudService extends CloudService {
-  protected override onRequest(request: Request): Response | Promise<Response> {
+  protected override onRequest(_request: Request): Response | Promise<Response> {
     // TODO: Implement your service logic here
     // For example, you can use the database and secrets like this:
     // const result = await this.database.query('SELECT * FROM users');
