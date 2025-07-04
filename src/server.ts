@@ -30,7 +30,7 @@ export async function create({
     port,
     log,
     d1Persist: database,
-    d1Databases: ['db'],
+    d1Databases: ['DATABASE'],
     r2Buckets: buckets,
     bindings: {
       ...bindings,
@@ -60,7 +60,7 @@ export async function start({
     .filter(([key]) => key.toUpperCase().startsWith('SECRET_'))
     .reduce(
       (acc, [key, value]) => {
-        acc[key.toUpperCase().replace('SECRET_', '')] = value;
+        acc[key.toUpperCase()] = value;
         return acc;
       },
       {} as Record<string, string>
@@ -70,7 +70,7 @@ export async function start({
     .filter(([key]) => !key.toUpperCase().startsWith('SECRET_'))
     .reduce(
       (acc, [key, value]) => {
-        acc[key.toUpperCase()] = value;
+        acc[`VARIABLE_${key.toUpperCase()}`] = value;
         return acc;
       },
       {} as Record<string, string>
@@ -79,7 +79,9 @@ export async function start({
   logger.info('Variables:');
   if (Object.keys(variables).length > 0) {
     Object.entries(variables).forEach(([key, value]) => {
-      logger.info(`  ${chalk.gray(key)}: ${chalk.blue(value)}`);
+      logger.info(
+        `  ${chalk.gray(key.replace('VARIABLE_', ''))}: ${chalk.blue(value)}`
+      );
     });
   } else {
     logger.info('  No variables found.');
@@ -88,7 +90,9 @@ export async function start({
   logger.info('Secrets:');
   if (Object.keys(secrets).length > 0) {
     Object.entries(secrets).forEach(([key]) => {
-      logger.info(`  ${chalk.gray(key)}: ${chalk.blue('********')}`);
+      logger.info(
+        `  ${chalk.gray(key.replace('SECRET_', ''))}: ${chalk.blue('********')}`
+      );
     });
   } else {
     logger.info('  No secrets found.');

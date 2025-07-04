@@ -5,7 +5,7 @@
 export * from '@calljmp/service';
 
 declare module '@calljmp/service' {
-  interface CloudServiceEnv {
+  interface CloudServiceTypes {
     {{#if buckets}}
     buckets: {
       {{#each buckets}}
