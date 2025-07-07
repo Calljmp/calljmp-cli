@@ -140,107 +140,145 @@ export * from './cf';
   await updateTypescriptConfig(directory);
 }
 
-export async function configureDependencies({
-  directory,
-}: {
-  directory: string;
-}) {
-  const projectType = detectProjectType(directory);
+async function installNpmPackage(
+  directory: string,
+  packageName: string,
+  options: {
+    dev?: boolean;
+    promptForPackageManager?: boolean;
+    packageManagerMessage?: string;
+  } = {}
+) {
+  const {
+    dev = false,
+    promptForPackageManager = true,
+    packageManagerMessage,
+  } = options;
+
   const packageJsonPath = path.join(directory, 'package.json');
   const packageContent = await fs.readFile(packageJsonPath, 'utf-8');
   const packageJson = JSON.parse(packageContent);
 
-  let userConfirmed: boolean | null = null;
-  let packageManager: 'npm' | 'yarn' | 'pnpm' | 'pub' | null = null;
+  // Check if already installed
+  if (
+    (!dev &&
+      packageJson.dependencies &&
+      packageName in packageJson.dependencies) ||
+    (dev &&
+      packageJson.devDependencies &&
+      packageName in packageJson.devDependencies)
+  ) {
+    // Silently skip if already installed
+    return;
+  }
 
-  const install = async (packageName: string, dev?: boolean) => {
-    // Check if already installed
-    if (
-      (!dev &&
-        packageJson.dependencies &&
-        packageName in packageJson.dependencies) ||
-      (dev &&
-        packageJson.devDependencies &&
-        packageName in packageJson.devDependencies)
-    ) {
-      // Silently skip if already installed
-      return;
+  let packageManager: 'npm' | 'yarn' | 'pnpm' = 'npm';
+
+  if (promptForPackageManager) {
+    const hasYarnLock = await fs
+      .access(path.join(directory, 'yarn.lock'))
+      .then(() => true)
+      .catch(() => false);
+
+    const pmResponse = await enquirer.prompt<{
+      packageManager: 'npm' | 'yarn' | 'pnpm';
+    }>({
+      type: 'select',
+      name: 'packageManager',
+      message: packageManagerMessage || 'Select package manager',
+      choices: [
+        { name: 'npm', value: 'npm' },
+        { name: 'yarn', value: 'yarn' },
+        { name: 'pnpm', value: 'pnpm' },
+      ],
+      initial: hasYarnLock ? 1 : 0,
+    });
+
+    packageManager = pmResponse.packageManager;
+  }
+
+  const spinner = ora(chalk.dim(`Installing ${packageName}...`)).start();
+  try {
+    const cmd =
+      packageManager === 'yarn'
+        ? 'yarn add'
+        : packageManager === 'pnpm'
+          ? 'pnpm add'
+          : 'npm install';
+
+    const flags: string[] = [];
+    if (dev) {
+      flags.push('--save-dev');
     }
 
-    if (userConfirmed === null) {
-      const confirmResponse = await enquirer.prompt<{ confirm: boolean }>({
-        type: 'confirm',
-        name: 'confirm',
-        message: 'Install dependencies now?',
-        initial: true,
-      });
-
-      userConfirmed = confirmResponse.confirm;
-
-      if (userConfirmed) {
-        if (projectType === ProjectType.ReactNative) {
-          const hasYarnLock = await fs
-            .access(path.join(directory, 'yarn.lock'))
-            .then(() => true)
-            .catch(() => false);
-
-          const pmResponse = await enquirer.prompt<{
-            packageManager: 'npm' | 'yarn' | 'pnpm';
-          }>({
-            type: 'select',
-            name: 'packageManager',
-            message: 'Select package manager',
-            choices: [
-              { name: 'npm', value: 'npm' },
-              { name: 'yarn', value: 'yarn' },
-              { name: 'pnpm', value: 'pnpm' },
-            ],
-            initial: hasYarnLock ? 1 : 0,
-          });
-
-          packageManager = pmResponse.packageManager;
-        } else if (projectType === ProjectType.Flutter) {
-          packageManager = 'pub';
+    await new Promise((resolve, reject) => {
+      exec(
+        `${cmd} ${flags.join(' ')} ${packageName}`,
+        { cwd: directory },
+        error => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(null);
+          }
         }
-      }
-    }
+      );
+    });
 
-    if (!userConfirmed || !packageManager) {
-      return;
+    spinner.succeed(chalk.dim(`Installed ${packageName}`));
+  } catch (error) {
+    spinner.fail(chalk.red(`Failed to install ${packageName}`));
+    throw error;
+  } finally {
+    spinner.stop();
+  }
+
+  return packageManager;
+}
+
+async function configureReactNativeDependencies(directory: string) {
+  await installNpmPackage(directory, '@calljmp/react-native');
+}
+
+async function configureFlutterDependencies(directory: string) {
+  const pubspecPath = path.join(directory, 'pubspec.yaml');
+
+  // Check if pubspec.yaml exists
+  const pubspecExists = await fs
+    .access(pubspecPath, fs.constants.R_OK)
+    .then(() => true)
+    .catch(() => false);
+
+  if (!pubspecExists) {
+    logger.warn(
+      chalk.yellow('No pubspec.yaml found, skipping Flutter dependencies')
+    );
+    return;
+  }
+
+  const installPackage = async (packageName: string) => {
+    // Read pubspec.yaml to check if package is already installed
+    try {
+      const pubspecContent = await fs.readFile(pubspecPath, 'utf-8');
+      if (pubspecContent.includes(`${packageName}:`)) {
+        // Package already exists, skip
+        return;
+      }
+    } catch {
+      // If we can't read pubspec.yaml, proceed with installation
     }
 
     const spinner = ora(chalk.dim(`Installing ${packageName}...`)).start();
     try {
-      const cmd =
-        packageManager === 'pub'
-          ? 'flutter pub add'
-          : packageManager === 'yarn'
-            ? 'yarn add'
-            : packageManager === 'pnpm'
-              ? 'pnpm add'
-              : 'npm install';
-
-      const flags: string[] = [];
-      if (projectType === ProjectType.ReactNative) {
-        if (dev) {
-          flags.push('--save-dev');
-        }
-      }
-
       await new Promise((resolve, reject) => {
-        exec(
-          `${cmd} ${flags.join(' ')} ${packageName}`,
-          { cwd: directory },
-          error => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve(null);
-            }
+        exec(`flutter pub add ${packageName}`, { cwd: directory }, error => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(null);
           }
-        );
+        });
       });
-
       spinner.succeed(chalk.dim(`Installed ${packageName}`));
     } catch (error) {
       spinner.fail(chalk.red(`Failed to install ${packageName}`));
@@ -250,13 +288,37 @@ export async function configureDependencies({
     }
   };
 
-  await install('@calljmp/service');
+  await installPackage('calljmp');
+}
 
-  if (projectType === ProjectType.ReactNative) {
-    await install('@calljmp/react-native');
-  } else if (projectType === ProjectType.Flutter) {
-    await install('calljmp');
+export async function configureDependencies({
+  directory,
+}: {
+  directory: string;
+}) {
+  const confirmResponse = await enquirer.prompt<{ confirm: boolean }>({
+    type: 'confirm',
+    name: 'confirm',
+    message: 'Install dependencies now?',
+    initial: true,
+  });
+
+  if (!confirmResponse.confirm) {
+    return;
   }
+
+  const projectType = detectProjectType(directory);
+  if (projectType === ProjectType.ReactNative) {
+    await configureReactNativeDependencies(directory);
+  } else if (projectType === ProjectType.Flutter) {
+    await configureFlutterDependencies(directory);
+  } else {
+    logger.warn(chalk.yellow(`Unsupported project type: ${projectType}`));
+  }
+
+  await installNpmPackage(directory, '@calljmp/service', {
+    packageManagerMessage: 'Select package manager for @calljmp/service',
+  });
 }
 
 async function updateTypescriptConfig(directory: string) {
