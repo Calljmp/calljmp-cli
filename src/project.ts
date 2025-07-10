@@ -334,4 +334,34 @@ export class Project {
     const pemContent = await response.text();
     return pemContent;
   }
+
+  async generateApplicationToken({ projectId }: { projectId: number }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}/app/token`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+
+    const result = (await response.json()) as {
+      token: string;
+      expiresAt: string;
+    };
+
+    return {
+      token: result.token,
+      expiresAt: new Date(result.expiresAt),
+    };
+  }
 }

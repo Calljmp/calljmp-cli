@@ -252,7 +252,7 @@ const schema = () =>
         });
         try {
           await flare.ready;
-          const db = await flare.getD1Database('db');
+          const db = await flare.getD1Database('DATABASE');
           await action(db);
         } finally {
           await flare.dispose();

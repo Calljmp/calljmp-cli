@@ -132,7 +132,7 @@ export async function migrateLocal(
   });
   try {
     await flare.ready;
-    const db = await flare.getD1Database('db');
+    const db = await flare.getD1Database('DATABASE');
 
     const appliedMigrations = await db
       .prepare(`SELECT * FROM ${table}`)
