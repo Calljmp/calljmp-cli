@@ -24,7 +24,7 @@ export abstract class CloudService<E extends CloudServiceEnv = CloudServiceEnv> 
     if (!this._env) {
       throw new Error("Environment not set");
     }
-    return this._env.db;
+    return this._env.DATABASE;
   }
 
   get buckets() {
