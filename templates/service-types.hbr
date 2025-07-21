@@ -9,7 +9,7 @@ declare module '@calljmp/service' {
     {{#if buckets}}
     buckets: {
       {{#each buckets}}
-      {{name}}: R2Bucket;
+      {{camelCase name}}: R2Bucket;
       {{/each}}
     };
     {{/if}}
