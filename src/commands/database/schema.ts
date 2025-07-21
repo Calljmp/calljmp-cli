@@ -9,7 +9,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import logger from '../../logger';
 import * as server from '../../server';
-import { build } from '../../build';
 import splitSqlQuery from '../../sql';
 import { MigrationStep, SqliteMigration } from '../../sqlite/migration';
 import { Database } from '../../database';
@@ -246,10 +245,7 @@ const schema = () =>
       const withDatabase = async (
         action: (db: D1Database) => Promise<void>
       ) => {
-        const flare = await server.create({
-          script: await build({ entryPoints: cfg.entry, debug: true }),
-          database: cfg.data,
-        });
+        const flare = await server.create({ database: cfg.data });
         try {
           await flare.ready;
           const db = await flare.getD1Database('DATABASE');
