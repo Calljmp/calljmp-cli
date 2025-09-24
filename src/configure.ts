@@ -144,6 +144,7 @@ async function installNpmPackage(
   directory: string,
   packageName: string,
   options: {
+    initial?: boolean;
     dev?: boolean;
     promptForPackageManager?: boolean;
     packageManagerMessage?: string;
@@ -151,6 +152,7 @@ async function installNpmPackage(
 ) {
   const {
     dev = false,
+    initial = true,
     promptForPackageManager = true,
     packageManagerMessage,
   } = options;
@@ -172,6 +174,18 @@ async function installNpmPackage(
     return;
   }
 
+  const confirmInstall = await enquirer.prompt<{ confirm: boolean }>({
+    type: 'confirm',
+    name: 'confirm',
+    message: `Install ${packageName} now?`,
+    initial,
+  });
+
+  if (!confirmInstall.confirm) {
+    logger.info(chalk.yellow(`Skipping installation of ${packageName}`));
+    return;
+  }
+
   let packageManager: 'npm' | 'yarn' | 'pnpm' = 'npm';
 
   if (promptForPackageManager) {
@@ -185,7 +199,8 @@ async function installNpmPackage(
     }>({
       type: 'select',
       name: 'packageManager',
-      message: packageManagerMessage || 'Select package manager',
+      message:
+        packageManagerMessage || `Select package manager for ${packageName}`,
       choices: [
         { name: 'npm', value: 'npm' },
         { name: 'yarn', value: 'yarn' },
@@ -238,6 +253,7 @@ async function installNpmPackage(
 
 async function configureReactNativeDependencies(directory: string) {
   await installNpmPackage(directory, '@calljmp/react-native');
+  await configureBabelConfig({ directory });
 }
 
 async function configureFlutterDependencies(directory: string) {
@@ -268,6 +284,18 @@ async function configureFlutterDependencies(directory: string) {
       // If we can't read pubspec.yaml, proceed with installation
     }
 
+    const confirmInstall = await enquirer.prompt<{ confirm: boolean }>({
+      type: 'confirm',
+      name: 'confirm',
+      message: `Install ${packageName} now?`,
+      initial: true,
+    });
+
+    if (!confirmInstall.confirm) {
+      logger.info(chalk.yellow(`Skipping installation of ${packageName}`));
+      return;
+    }
+
     const spinner = ora(chalk.dim(`Installing ${packageName}...`)).start();
     try {
       await new Promise((resolve, reject) => {
@@ -296,17 +324,6 @@ export async function configureDependencies({
 }: {
   directory: string;
 }) {
-  const confirmResponse = await enquirer.prompt<{ confirm: boolean }>({
-    type: 'confirm',
-    name: 'confirm',
-    message: 'Install dependencies now?',
-    initial: true,
-  });
-
-  if (!confirmResponse.confirm) {
-    return;
-  }
-
   const projectType = detectProjectType(directory);
   if (projectType === ProjectType.ReactNative) {
     await configureReactNativeDependencies(directory);
@@ -316,9 +333,7 @@ export async function configureDependencies({
     logger.warn(chalk.yellow(`Unsupported project type: ${projectType}`));
   }
 
-  await installNpmPackage(directory, '@calljmp/service', {
-    packageManagerMessage: 'Select package manager for @calljmp/service',
-  });
+  await installNpmPackage(directory, '@calljmp/service', { initial: false });
 }
 
 async function updateTypescriptConfig(directory: string) {
@@ -342,4 +357,103 @@ async function updateTypescriptConfig(directory: string) {
   } catch {
     // noop
   }
+}
+
+async function configureBabelConfig({ directory }: { directory: string }) {
+  const babelConfigPathJS = path.join(directory, 'babel.config.js');
+  const babelConfigPathJSON = path.join(directory, 'babel.config.json');
+  const pluginPath = '@calljmp/react-native/babel';
+
+  // Detect if this is an Expo project
+  const isExpo = await fs
+    .readFile(path.join(directory, 'package.json'), 'utf-8')
+    .then(content => JSON.parse(content).dependencies?.expo)
+    .catch(() => false);
+  const preset = isExpo
+    ? 'babel-preset-expo'
+    : 'module:metro-react-native-babel-preset';
+
+  // Check if either config file exists
+  const existsJS = await fs
+    .access(babelConfigPathJS, fs.constants.R_OK)
+    .then(() => true)
+    .catch(() => false);
+  const existsJSON = await fs
+    .access(babelConfigPathJSON, fs.constants.R_OK)
+    .then(() => true)
+    .catch(() => false);
+
+  // Case 1: No Babel config exists, create a new babel.config.js
+  if (!existsJS && !existsJSON) {
+    const babelContent = `module.exports = function(api) {
+  api.cache(true);
+  return {
+    presets: ['${preset}'],
+    plugins: ['${pluginPath}'],
+  };
+};
+`;
+    await fs.writeFile(babelConfigPathJS, babelContent, 'utf-8');
+    return;
+  }
+
+  // Case 2: Handle existing config
+  const babelConfigPath = existsJS ? babelConfigPathJS : babelConfigPathJSON;
+  const isJS = existsJS;
+
+  const babelContent = await fs.readFile(babelConfigPath, 'utf-8');
+
+  if (isJS) {
+    // Handle JavaScript config
+    if (babelContent.includes(pluginPath)) {
+      return;
+    }
+
+    // Check if plugins array exists
+    if (/plugins\s*:\s*\[/.test(babelContent)) {
+      // Append to existing plugins array
+      const updatedContent = babelContent.replace(
+        /plugins\s*:\s*\[/,
+        `plugins: ['${pluginPath}', `
+      );
+      await fs.writeFile(babelConfigPath, updatedContent, 'utf-8');
+    } else {
+      // Add plugins array before the closing brace of the return object
+      const updatedContent = babelContent.replace(
+        /return\s*{([^}]*)}/,
+        `return {$1  plugins: ['${pluginPath}'],\n}`
+      );
+      if (updatedContent === babelContent) {
+        throw new Error(
+          'Failed to add plugins array: Invalid babel.config.js structure'
+        );
+      }
+      await fs.writeFile(babelConfigPath, updatedContent, 'utf-8');
+    }
+  } else {
+    // Handle JSON config
+    let config: any;
+    try {
+      config = JSON.parse(babelContent);
+    } catch (err: any) {
+      throw new Error(`Invalid JSON in ${babelConfigPath}: ${err.message}`);
+    }
+
+    if (!config.plugins) {
+      config.plugins = [];
+    }
+
+    if (config.plugins.includes(pluginPath)) {
+      return;
+    }
+
+    config.plugins.push(pluginPath);
+    await fs.writeFile(
+      babelConfigPath,
+      JSON.stringify(config, null, 2),
+      'utf-8'
+    );
+  }
+
+  return;
 }

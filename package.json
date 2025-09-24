@@ -1,6 +1,6 @@
 {
   "name": "@calljmp/cli",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Calljmp CLI",
   "keywords": [
     "calljmp",
@@ -17,5 +17,24 @@
   "bugs": {
     "url": "https://github.com/Calljmp/calljmp-cli/issues"
   },
-  "homepage": "https://github.com/Calljmp/calljmp-cli#readme"
+  "homepage": "https://github.com/Calljmp/calljmp-cli ",
+  "devDependencies": {
+    "@swc-node/register": "~1.9.1",
+    "@swc/core": "~1.5.7",
+    "@types/figlet": "^1.7.0",
+    "@types/node": "~18.16.9",
+    "@types/sqlite3": "^3.1.11",
+    "@types/xml2js": "^0.4.14"
+  },
+  "dependencies": {
+    "@bacons/xcode": "^1.0.0-alpha.24",
+    "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
+    "enquirer": "^2.4.1",
+    "figlet": "^1.8.0",
+    "gradient-string": "^3.0.0",
+    "node-fetch": "^3.3.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "xml2js": "^0.6.2"
+  }
 }
