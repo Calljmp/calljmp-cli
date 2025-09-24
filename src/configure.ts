@@ -362,7 +362,7 @@ async function updateTypescriptConfig(directory: string) {
 async function configureBabelConfig({ directory }: { directory: string }) {
   const babelConfigPathJS = path.join(directory, 'babel.config.js');
   const babelConfigPathJSON = path.join(directory, 'babel.config.json');
-  const pluginPath = '@calljmp/react-native/babel';
+  const pluginPath = '@calljmp/react-native/babel-plugin';
 
   // Detect if this is an Expo project
   const isExpo = await fs
