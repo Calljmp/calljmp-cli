@@ -55,10 +55,10 @@ const run = new Command()
       const project = await projects.selected();
 
       const agents = new Agents(config);
-      const { id } = await agents.deploy(project);
+      const { id: deploymentId } = await agents.deploy(project);
       await agents.run(
         project,
-        id,
+        deploymentId,
         options.input ? JSON.parse(options.input) : undefined
       );
     }

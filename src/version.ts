@@ -1,1 +1,1 @@
-export function version() { return '0.2.1'; }
+export function version() { return '0.2.2'; }

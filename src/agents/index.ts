@@ -21,7 +21,7 @@ import enquirer from 'enquirer';
 import esbuild from 'esbuild';
 
 export class Agents {
-  constructor(private _config: Config) {}
+  constructor(private _config: Config) { }
 
   async initializeProject(project: Project) {
     const spinner = ora(chalk.blue('Generating project...')).start();
@@ -174,8 +174,8 @@ export class Agents {
   async deploy(project: Project) {
     const build = await this.build();
 
+    const spinner = ora(chalk.blue('Deploying agent...')).start();
     try {
-      const spinner = ora(chalk.blue('Deploying agent...')).start();
       const id = await this._deploy({
         projectId: project.id,
         ...build,
@@ -192,15 +192,23 @@ export class Agents {
       );
       return { id };
     } catch (error) {
-      logger.error(
-        chalk.red(`Failed to deploy agent: ${(error as Error).message}`)
-      );
+      spinner.fail(chalk.red(`Failed to deploy agent: ${(error as Error).message}`));
       throw error;
     }
   }
 
   async run<Input = unknown>(project: Project, id: string, input?: Input) {
-    return this._run<Input>({ projectId: project.id, id, input });
+    const spinner = ora(chalk.blue('Running agent...')).start();
+    try {
+      const result = await this._run<Input>({ projectId: project.id, id, input });
+      spinner.succeed(chalk.green('Agent run initiated:'));
+      logger.info(`  - id: ${result.id}`);
+      logger.info(`  - url: ${chalk.underline(`https://dash.calljmp.com/project/${project.id}/agents`)}`);
+      return result;
+    } catch (error) {
+      spinner.fail(chalk.red(`Failed to run agent: ${(error as Error).message}`));
+      throw error;
+    }
   }
 
   private async _run<Input = unknown>({
