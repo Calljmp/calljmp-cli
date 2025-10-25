@@ -42,21 +42,17 @@
         "format": [
           "cjs"
         ],
-        "bundle": false,
+        "bundle": true,
         "main": "apps/cli/src/main.ts",
         "tsConfig": "apps/cli/tsconfig.app.json",
-        "assets": [
-          {
-            "glob": "**/*",
-            "input": "apps/cli/templates",
-            "output": "apps/cli/templates"
-          }
-        ],
         "minify": false,
         "esbuildOptions": {
           "sourcemap": true,
           "outExtension": {
             ".js": ".js"
+          },
+          "loader": {
+            ".mst": "text"
           }
         }
       }
@@ -75,17 +71,12 @@
         "format": [
           "cjs"
         ],
-        "bundle": false,
+        "bundle": true,
         "main": "apps/cli/src/main.ts",
         "tsConfig": "apps/cli/tsconfig.app.json",
         "assets": [
           "apps/cli/README.md",
-          "apps/cli/LICENSE",
-          {
-            "glob": "**/*",
-            "input": "apps/cli/templates",
-            "output": "apps/cli/templates"
-          }
+          "apps/cli/LICENSE"
         ],
         "generatePackageJson": true,
         "minify": true,
@@ -93,6 +84,9 @@
           "sourcemap": false,
           "outExtension": {
             ".js": ".js"
+          },
+          "loader": {
+            ".mst": "text"
           }
         }
       }

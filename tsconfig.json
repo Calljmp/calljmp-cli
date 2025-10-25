@@ -5,9 +5,9 @@
   "references": [
     {
       "path": "./tsconfig.spec.json"
+    },
+    {
+      "path": "./tsconfig.app.json"
     }
   ],
-  "compilerOptions": {
-    "esModuleInterop": true
-  }
 }

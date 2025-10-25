@@ -1,120 +1,93 @@
+import fs from 'fs';
 import { Option } from 'commander';
 import path from 'path';
-import fs from 'fs/promises';
 
-export const ConfigDefaults = {
-  baseUrl: 'https://api.calljmp.com',
-  project: '.',
-  module: './service',
-  migrations: './service/migrations',
-  schema: './service/schema',
-};
-
-export interface PersistentConfig {
-  projectId?: number;
-  accessToken?: string;
-  module?: string;
-  migrations?: string;
-  schema?: string;
-  bindings?: {
-    buckets?: Record<string, string>;
-  };
-}
-
-export interface Config extends PersistentConfig {
-  baseUrl: string;
+export interface CliOptions {
   project: string;
-  module: string;
-  data: string;
-  entry: string;
-  migrations: string;
-  schema: string;
+  baseUrl: string;
 }
 
-async function buildConfig({
-  project,
-  module,
-  migrations,
-  schema,
-}: {
-  project?: string;
-  module?: string;
-  migrations?: string;
-  schema?: string;
-}): Promise<Config> {
-  const projectDirectory = path.resolve(process.cwd(), project || '.');
-  const dataDirectory = path.join(projectDirectory, '.calljmp');
-  const config = await readConfig(dataDirectory);
-
-  const moduleDirectory = path.resolve(
-    projectDirectory,
-    module || config?.module || ConfigDefaults.module
-  );
-  const migrationsDirectory = path.resolve(
-    projectDirectory,
-    migrations || config?.migrations || ConfigDefaults.migrations
-  );
-  const schemaDirectory = path.resolve(
-    projectDirectory,
-    schema || config?.schema || ConfigDefaults.schema
-  );
-
-  return {
-    ...config,
-    baseUrl: process.env.CALLJMP_BASE_URL || ConfigDefaults.baseUrl,
-    project: projectDirectory,
-    module: moduleDirectory,
-    data: dataDirectory,
-    migrations: migrationsDirectory,
-    schema: schemaDirectory,
-    entry: path.join(moduleDirectory, 'main.ts'),
-  };
-}
-
-async function readConfig(dataDirectory: string) {
-  const result = await fs
-    .readFile(path.join(dataDirectory, 'config.json'), 'utf-8')
-    .then(data => JSON.parse(data) as PersistentConfig)
-    .catch(() => null);
-  return result;
-}
-
-export async function writeConfig(config: Config) {
-  const configPath = path.join(config.data, 'config.json');
-  await fs.mkdir(config.data, { recursive: true });
-  await fs.writeFile(
-    configPath,
-    JSON.stringify(
-      {
-        projectId: config.projectId,
-        accessToken: config.accessToken,
-        module: path.relative(config.project, config.module),
-        migrations: path.relative(config.project, config.migrations),
-        schema: path.relative(config.project, config.schema),
-        bindings: config.bindings,
-      },
-      null,
-      2
-    )
-  );
-}
-
-export const ConfigOptions = {
-  ProjectDirectory: new Option('-p, --project <directory>', 'Project directory')
+export const CliCommonOptions = {
+  project: new Option('-p, --project <path>', 'Path to the project directory')
     .default('.')
-    .env('CALLJMP_PROJECT'),
-  ModuleDirectory: new Option('-m, --module <directory>', 'Module directory')
-    .default(ConfigDefaults.module)
-    .env('CALLJMP_MODULE'),
-  MigrationsDirectory: new Option(
-    '--mg, --migrations <directory>',
-    'Migrations directory'
-  )
-    .default(ConfigDefaults.migrations)
-    .env('CALLJMP_MIGRATIONS'),
-  SchemaDirectory: new Option('--s, --schema <directory>', 'Schema directory')
-    .default(ConfigDefaults.schema)
-    .env('CALLJMP_SCHEMA'),
+    .env('CALLJMP_PROJECT_DIR'),
+  baseUrl: new Option('-u, --base-url <url>', 'URL for the Calljmp server')
+    .default('https://api.calljmp.com')
+    .env('CALLJMP_BASE_URL'),
 };
 
-export default buildConfig;
+export class Config {
+  private _accessToken: string | null = null;
+  private _projectId: number | null = null;
+
+  constructor(private _opts: CliOptions) {
+    this.restore();
+  }
+
+  private restore() {
+    this._accessToken = process.env.CALLJMP_ACCESS_TOKEN || null;
+    this._projectId = process.env.CALLJMP_PROJECT_ID
+      ? parseInt(process.env.CALLJMP_PROJECT_ID, 10)
+      : null;
+
+    try {
+      const content = fs.readFileSync(
+        path.resolve(this.dataDirectory, '__config'),
+        'utf-8'
+      );
+      const data = JSON.parse(content) as {
+        accessToken?: string;
+        projectId?: number;
+      };
+
+      this._accessToken = data.accessToken || this._accessToken;
+      this._projectId = data.projectId || this._projectId;
+    } catch {
+      // No config file, ignore
+    }
+  }
+
+  private save() {
+    const data = {
+      accessToken: this._accessToken,
+      projectId: this._projectId,
+    };
+
+    fs.mkdirSync(this.dataDirectory, { recursive: true });
+    fs.writeFileSync(
+      path.resolve(this.dataDirectory, '__config'),
+      JSON.stringify(data, null, 2),
+      'utf-8'
+    );
+  }
+
+  get dataDirectory(): string {
+    return path.resolve(this.projectDirectory, '.calljmp');
+  }
+
+  get projectDirectory(): string {
+    return path.resolve(process.cwd(), this._opts.project);
+  }
+
+  get baseUrl(): string {
+    return this._opts.baseUrl;
+  }
+
+  get accessToken(): string | null {
+    return this._accessToken;
+  }
+
+  set accessToken(token: string | null) {
+    this._accessToken = token;
+    this.save();
+  }
+
+  get projectId(): number | null {
+    return this._projectId;
+  }
+
+  set projectId(id: number | null) {
+    this._projectId = id;
+    this.save();
+  }
+}

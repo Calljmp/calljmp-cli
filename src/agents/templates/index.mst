@@ -1,0 +1,6 @@
+export const config = {
+  name: 'Hello World Agent',
+  description: 'A basic AI agent that greets the world.',
+};
+
+console.log('Hello from AI agent!');
