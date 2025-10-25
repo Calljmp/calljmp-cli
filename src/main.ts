@@ -1,11 +1,11 @@
 import { Command } from 'commander';
 import figlet from 'figlet';
 import gradient from 'gradient-string';
-import { version } from './version';
 import init from './commands/init';
 import project from './commands/project';
 import account from './commands/account';
 import agent from './commands/agent';
+import { version } from './version';
 
 const brand = gradient(['#28e2ad', '#0b77e6']);
 
@@ -23,7 +23,7 @@ console.log();
 const program = new Command()
   .name('calljmp')
   .description('CLI for Calljmp')
-  .version(version())
+  .version(version(), '-v, --version', 'Display version information')
   .helpOption('-h, --help', 'Display help for command')
   .addCommand(init)
   .addCommand(project)
