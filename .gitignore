@@ -1,4 +1,4 @@
 src/common
-src/version.ts
+src/gen
 tools
 node_modules

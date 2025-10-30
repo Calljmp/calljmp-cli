@@ -21,7 +21,7 @@ import enquirer from 'enquirer';
 import esbuild from 'esbuild';
 
 export class Agents {
-  constructor(private _config: Config) { }
+  constructor(private _config: Config) {}
 
   async initializeProject(project: Project) {
     const spinner = ora(chalk.blue('Generating project...')).start();
@@ -78,11 +78,6 @@ export class Agents {
   async build(options?: { minify?: boolean }) {
     const spinner = ora(chalk.blue('Building agent...')).start();
     try {
-      const contents = await fs.readFile(
-        path.join(this._config.projectDirectory, 'index.ts'),
-        'utf-8'
-      );
-
       const result = await esbuild.build({
         write: false,
         bundle: true,
@@ -90,13 +85,10 @@ export class Agents {
         platform: 'neutral',
         target: 'es2022',
         minify: options?.minify === false ? false : true,
-        external: ['@calljmp/agent'],
-        stdin: {
-          contents,
-          sourcefile: 'index.ts',
-          loader: 'ts',
-        },
+        external: ['@calljmp/agent', 'path', 'fs', 'os'],
+        entryPoints: [path.join(this._config.projectDirectory, 'index.ts')],
         absWorkingDir: path.resolve(this._config.projectDirectory),
+        tsconfig: path.join(this._config.projectDirectory, 'tsconfig.json'),
       });
 
       if (result.errors.length > 0) {
@@ -192,7 +184,9 @@ export class Agents {
       );
       return { id };
     } catch (error) {
-      spinner.fail(chalk.red(`Failed to deploy agent: ${(error as Error).message}`));
+      spinner.fail(
+        chalk.red(`Failed to deploy agent: ${(error as Error).message}`)
+      );
       throw error;
     }
   }
@@ -200,13 +194,21 @@ export class Agents {
   async run<Input = unknown>(project: Project, id: string, input?: Input) {
     const spinner = ora(chalk.blue('Running agent...')).start();
     try {
-      const result = await this._run<Input>({ projectId: project.id, id, input });
+      const result = await this._run<Input>({
+        projectId: project.id,
+        id,
+        input,
+      });
       spinner.succeed(chalk.green('Agent run initiated:'));
       logger.info(`  - id: ${result.id}`);
-      logger.info(`  - url: ${chalk.underline(`https://dash.calljmp.com/project/${project.id}/agents`)}`);
+      logger.info(
+        `  - url: ${chalk.underline(`https://dash.calljmp.com/project/${project.id}/agents`)}`
+      );
       return result;
     } catch (error) {
-      spinner.fail(chalk.red(`Failed to run agent: ${(error as Error).message}`));
+      spinner.fail(
+        chalk.red(`Failed to run agent: ${(error as Error).message}`)
+      );
       throw error;
     }
   }

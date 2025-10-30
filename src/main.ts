@@ -5,7 +5,7 @@ import init from './commands/init';
 import project from './commands/project';
 import account from './commands/account';
 import agent from './commands/agent';
-import { version } from './version';
+import { version } from './gen/version';
 
 const brand = gradient(['#28e2ad', '#0b77e6']);
 
