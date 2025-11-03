@@ -1,6 +1,19 @@
-export const config = {
-  name: 'Hello World Agent',
-  description: 'A basic AI agent that greets the world.',
-};
+import { workflow } from '@calljmp/agent';
 
-console.log('Hello from AI agent!');
+export const config = {
+  name: '{{agentName}}',
+  description: '{{agentDescription}}',
+}
+
+export async function run(input?: unknown) {
+  const result = await workflow.phase(
+    {
+      name: 'First phase',
+      description: 'This is the first phase of the agent workflow.',
+    },
+    () =>
+      Promise.resolve({ output: 'Hello from the first phase!' })
+  );
+
+  return result;
+}

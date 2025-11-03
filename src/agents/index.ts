@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs/promises';
 import {
-  AgentConfig,
+  jsonToAgent,
   Project,
   ServiceError,
   ServiceErrorCode,
@@ -17,7 +17,6 @@ import logger from '../logger';
 import { toKebabCase, toSentenceCase } from '../utils/case';
 import path from 'path';
 import fetch from 'node-fetch';
-import enquirer from 'enquirer';
 import esbuild from 'esbuild';
 
 export class Agents {
@@ -32,15 +31,19 @@ export class Agents {
 
       const filesToCreate = [
         { name: '.gitignore', content: TemplateGitIgnore },
-        { name: 'index.ts', content: TemplateIndex },
         {
-          name: 'package.json',
-          content: mustache.render(TemplatePackage, {
-            packageName: toKebabCase(project.name),
+          name: 'index.ts',
+          content: mustache.render(TemplateIndex, {
             agentName: toSentenceCase(project.name),
             agentDescription:
               project.description ||
               `${toSentenceCase(project.name)} agent powered by Calljmp.`,
+          }),
+        },
+        {
+          name: 'package.json',
+          content: mustache.render(TemplatePackage, {
+            packageName: toKebabCase(project.name),
           }),
         },
         { name: 'tsconfig.json', content: TemplateTsConfig },
@@ -78,6 +81,8 @@ export class Agents {
   async build(options?: { minify?: boolean }) {
     const spinner = ora(chalk.blue('Building agent...')).start();
     try {
+      const entryPoint = path.join(this._config.projectDirectory, 'index.ts');
+
       const result = await esbuild.build({
         write: false,
         bundle: true,
@@ -86,7 +91,7 @@ export class Agents {
         target: 'es2022',
         minify: options?.minify === false ? false : true,
         external: ['@calljmp/agent', 'path', 'fs', 'os'],
-        entryPoints: [path.join(this._config.projectDirectory, 'index.ts')],
+        entryPoints: [entryPoint],
         absWorkingDir: path.resolve(this._config.projectDirectory),
         tsconfig: path.join(this._config.projectDirectory, 'tsconfig.json'),
       });
@@ -103,60 +108,7 @@ export class Agents {
       }
 
       spinner.succeed(chalk.green('Agent built.'));
-
-      let config: AgentConfig | undefined;
-      try {
-        const pkg = await fs.readFile(
-          path.join(this._config.projectDirectory, 'package.json'),
-          'utf-8'
-        );
-        const pkgJson = JSON.parse(pkg);
-        config = pkgJson.agent as AgentConfig | undefined;
-      } catch {
-        // If reading package.json fails, fall back to prompting
-      }
-
-      if (!config || !config.name) {
-        logger.info(
-          chalk.yellow(
-            'Agent config not found in package.json. Need some agent details'
-          )
-        );
-
-        const { name, description } = await enquirer.prompt<{
-          name: string;
-          description: string;
-        }>([
-          {
-            type: 'input',
-            name: 'name',
-            message: 'Agent name',
-            required: true,
-            validate: (value: string) => {
-              if (!value) {
-                return 'Agent name is required';
-              }
-              return true;
-            },
-          },
-          {
-            type: 'input',
-            name: 'description',
-            message: 'Agent description',
-            required: true,
-            validate: (value: string) => {
-              if (!value) {
-                return 'Agent description is required';
-              }
-              return true;
-            },
-          },
-        ]);
-
-        config = { name, description };
-      }
-
-      return { config, code };
+      return { code };
     } catch (e) {
       spinner.fail(chalk.red('Agent build failed.'));
       throw new Error(`Build failed: ${(e as Error).message}`);
@@ -172,12 +124,14 @@ export class Agents {
         projectId: project.id,
         ...build,
       });
+      const agent = await this._retrieve({ id, projectId: project.id });
       spinner.succeed(chalk.green('Agent deployed:'));
       logger.info(
         [
-          `name: ${build.config.name}`,
-          `description: ${build.config.description}`,
-          `id: ${id}`,
+          `name: ${agent.name}`,
+          `description: ${agent.description}`,
+          `id: ${agent.deploymentId}`,
+          `version: ${agent.version}`,
         ]
           .map(line => `  - ${line}`)
           .join('\n')
@@ -250,11 +204,9 @@ export class Agents {
 
   private async _deploy({
     projectId,
-    config,
     code,
   }: {
     projectId: number;
-    config: AgentConfig;
     code: string;
   }) {
     const response = await fetch(
@@ -265,7 +217,7 @@ export class Agents {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this._config.accessToken}`,
         },
-        body: JSON.stringify({ config, code }),
+        body: JSON.stringify({ code }),
       }
     );
 
@@ -278,5 +230,33 @@ export class Agents {
 
     const { id } = (await response.json()) as { id: string };
     return id;
+  }
+
+  private async _retrieve({
+    id,
+    projectId,
+  }: {
+    id: string;
+    projectId: number;
+  }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}/ai/agent/${id}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this._config.accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
+    }
+
+    const json = (await response.json()) as Record<string, unknown>;
+    return jsonToAgent(json);
   }
 }
