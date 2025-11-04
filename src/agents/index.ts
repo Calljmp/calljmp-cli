@@ -78,10 +78,52 @@ export class Agents {
     }
   }
 
-  async build(options?: { minify?: boolean }) {
+  private async _resolveEntryPoint(entryPoint?: string) {
+    const options: string[] = [];
+
+    if (entryPoint) {
+      options.push(
+        entryPoint,
+        `${entryPoint}.ts`,
+        `${entryPoint}.js`,
+        path.join(this._config.projectDirectory, 'src', entryPoint),
+        path.join(this._config.projectDirectory, 'src', `${entryPoint}.ts`),
+        path.join(this._config.projectDirectory, 'src', `${entryPoint}.js`)
+      );
+    } else {
+      options.push(
+        path.join(this._config.projectDirectory, 'index.ts'),
+        path.join(this._config.projectDirectory, 'index.js'),
+        path.join(this._config.projectDirectory, 'src', 'index.ts'),
+        path.join(this._config.projectDirectory, 'src', 'index.js'),
+        path.join(this._config.projectDirectory, 'main.ts'),
+        path.join(this._config.projectDirectory, 'main.js'),
+        path.join(this._config.projectDirectory, 'src', 'main.ts'),
+        path.join(this._config.projectDirectory, 'src', 'main.js')
+      );
+    }
+
+    for (const option of options) {
+      const fullPath = path.join(this._config.projectDirectory, option);
+      try {
+        const stat = await fs.stat(fullPath);
+        if (stat.isFile()) {
+          return fullPath;
+        }
+      } catch {
+        // File does not exist, continue to next option
+      }
+    }
+
+    throw new Error(
+      'Could not resolve entry point. Please specify a valid entry point or create an index.ts file in the project root.'
+    );
+  }
+
+  async build(options?: { minify?: boolean; entryPoint?: string }) {
     const spinner = ora(chalk.blue('Building agent...')).start();
     try {
-      const entryPoint = path.join(this._config.projectDirectory, 'index.ts');
+      const entryPoint = await this._resolveEntryPoint(options?.entryPoint);
 
       const result = await esbuild.build({
         write: false,
@@ -115,8 +157,13 @@ export class Agents {
     }
   }
 
-  async deploy(project: Project) {
-    const build = await this.build();
+  async deploy(
+    project: Project,
+    options?: {
+      entryPoint?: string;
+    }
+  ) {
+    const build = await this.build(options);
 
     const spinner = ora(chalk.blue('Deploying agent...')).start();
     try {
@@ -136,7 +183,7 @@ export class Agents {
           .map(line => `  - ${line}`)
           .join('\n')
       );
-      return { id };
+      return { id: agent.deploymentId };
     } catch (error) {
       spinner.fail(
         chalk.red(`Failed to deploy agent: ${(error as Error).message}`)
