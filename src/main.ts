@@ -7,6 +7,7 @@ import account from './commands/account';
 import agent from './commands/agent';
 import { version } from './gen/version';
 import { formatError, getExitCode } from './utils/error-handler';
+import vault from './commands/vault';
 
 async function main() {
   try {
@@ -31,7 +32,8 @@ async function main() {
       .addCommand(init)
       .addCommand(project)
       .addCommand(account)
-      .addCommand(agent);
+      .addCommand(agent)
+      .addCommand(vault);
 
     if (process.argv.length <= 2) {
       program.outputHelp();
