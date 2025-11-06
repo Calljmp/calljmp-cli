@@ -15,7 +15,7 @@ export class Vault {
 
   async delete(project: Project, keyName?: string) {
     if (!keyName) {
-      const keyValues = await this._list(project);
+      const keyValues = await this.list(project);
       if (keyValues.length === 0) {
         console.log(chalk.yellow('No variables or secrets found in vault.'));
         return;
@@ -67,21 +67,6 @@ export class Vault {
   }
 
   async list(project: Project) {
-    const keyValues = await this._list(project);
-
-    if (keyValues.length === 0) {
-      console.log(chalk.yellow('No variables or secrets found in vault.'));
-    } else {
-      console.log(chalk.green('Variables and secrets in vault:'));
-      for (const kv of keyValues) {
-        console.log(
-          `  ${chalk.cyan(kv.keyName)}: ${kv.isSensitive ? chalk.red('*** (sensitive)') : chalk.green(JSON.stringify(kv.value))}`
-        );
-      }
-    }
-  }
-
-  private async _list(project: Project) {
     const response = await fetch(
       `${this._config.baseUrl}/project/${project.id}/vault`,
       {

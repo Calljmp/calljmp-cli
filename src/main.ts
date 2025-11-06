@@ -8,6 +8,7 @@ import agent from './commands/agent';
 import { version } from './gen/version';
 import { formatError, getExitCode } from './utils/error-handler';
 import vault from './commands/vault';
+import typegen from './commands/typegen';
 
 async function main() {
   try {
@@ -30,6 +31,7 @@ async function main() {
       .version(version(), '-v, --version', 'Display version information')
       .helpOption('-h, --help', 'Display help for command')
       .addCommand(init)
+      .addCommand(typegen)
       .addCommand(project)
       .addCommand(account)
       .addCommand(agent)

@@ -65,6 +65,10 @@ export class Config {
     return path.resolve(this.projectDirectory, '.calljmp');
   }
 
+  get typesDirectory(): string {
+    return path.resolve(this.dataDirectory, 'types');
+  }
+
   get projectDirectory(): string {
     return path.resolve(process.cwd(), this._opts.project);
   }

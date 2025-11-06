@@ -1,8 +1,10 @@
 import { Command, Option } from 'commander';
+import chalk from 'chalk';
 import { CliCommonOptions, CliOptions, Config } from '../config';
 import { Authentication } from '../authentication';
 import { Projects } from '../projects';
 import { Vault } from '../vault';
+import { Agents } from '../agents';
 
 const Options = {
   name: new Option(
@@ -33,7 +35,18 @@ const list = new Command()
     const project = await projects.selected();
 
     const vault = new Vault(config);
-    await vault.list(project);
+    const keyValues = await vault.list(project);
+
+    if (keyValues.length === 0) {
+      console.log(chalk.yellow('No variables or secrets found in vault.'));
+    } else {
+      console.log(chalk.green('Variables and secrets in vault:'));
+      for (const kv of keyValues) {
+        console.log(
+          `  ${chalk.cyan(kv.keyName)}: ${kv.isSensitive ? chalk.red('*** (sensitive)') : chalk.green(JSON.stringify(kv.value))}`
+        );
+      }
+    }
   });
 
 const del = new Command()
@@ -60,6 +73,9 @@ const del = new Command()
 
     const vault = new Vault(config);
     await vault.delete(project, options.name);
+
+    const agents = new Agents(config);
+    await agents.generateTypes(project);
   });
 
 const add = new Command()
@@ -112,6 +128,9 @@ const add = new Command()
         isSensitive: options.sensitive,
         description: options.description,
       });
+
+      const agents = new Agents(config);
+      await agents.generateTypes(project);
     }
   );
 
