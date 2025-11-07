@@ -7,6 +7,6 @@
   "devDependencies": {
     "typescript": "^5.3.3",
     "@types/node": "^20.11.0",
-    "@calljmp/agent": "^0.0.1"
+    "@calljmp/agent": "^0.0.5"
   }
 }
