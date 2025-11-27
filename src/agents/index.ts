@@ -19,6 +19,7 @@ import path from 'path';
 import fetch from 'node-fetch';
 import esbuild from 'esbuild';
 import { Vault } from '../vault';
+import { workersCompatPlugin } from './workers-compat-plugin';
 
 export class Agents {
   constructor(private _config: Config) {}
@@ -199,9 +200,10 @@ ${keyValuesEntries}
         platform: 'neutral',
         target: 'es2022',
         minify: options?.minify === false ? false : true,
-        external: ['@calljmp/agent', 'path', 'fs', 'os'],
         entryPoints: [entryPoint],
         absWorkingDir: path.resolve(this._config.projectDirectory),
+        mainFields: ['module', 'main'],
+        plugins: [workersCompatPlugin()],
         tsconfig: path.join(this._config.projectDirectory, 'tsconfig.json'),
       });
 

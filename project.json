@@ -51,7 +51,7 @@
         "platform": "node",
         "outputPath": "dist/apps/cli",
         "format": [
-          "cjs"
+          "esm"
         ],
         "bundle": true,
         "main": "apps/cli/src/main.ts",
@@ -81,7 +81,7 @@
         "platform": "node",
         "outputPath": "dist/apps/cli",
         "format": [
-          "cjs"
+          "esm"
         ],
         "bundle": true,
         "main": "apps/cli/src/main.ts",

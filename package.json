@@ -1,6 +1,7 @@
 {
   "name": "@calljmp/cli",
-  "version": "0.2.8",
+  "version": "0.2.9",
+  "type": "module",
   "description": "Calljmp CLI",
   "keywords": [
     "calljmp",
@@ -24,13 +25,14 @@
     "vitest": "^4.0.3"
   },
   "dependencies": {
-    "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
+    "@cloudflare/unenv-preset": "^2.7.11",
     "enquirer": "^2.4.1",
-    "esbuild": "^0.25.11",
+    "esbuild": "^0.27.0",
     "figlet": "^1.8.0",
     "gradient-string": "^3.0.0",
     "jose": "^5.10.0",
     "mustache": "^4.2.0",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "unenv": "^2.0.0-rc.24"
   }
 }
