@@ -15,6 +15,10 @@ const Options = {
 const deploy = new Command()
   .name('deploy')
   .description('Deploy a new agent to your project.')
+  .option(
+    '-f, --force',
+    'Force redeployment of the agent even if the code has not changed'
+  )
   .addOption(CliCommonOptions.project)
   .addOption(CliCommonOptions.baseUrl)
   .addOption(Options.name)
@@ -22,6 +26,7 @@ const deploy = new Command()
     async (
       options: CliOptions & {
         name: string;
+        force?: boolean;
       }
     ) => {
       const config = new Config(options);
@@ -39,13 +44,20 @@ const deploy = new Command()
       const project = await projects.selected();
 
       const agents = new Agents(config);
-      await agents.deploy(project, { entryPoint: options.name });
+      await agents.deploy(project, {
+        entryPoint: options.name,
+        force: options.force,
+      });
     }
   );
 
 const run = new Command()
   .name('run')
   .description('Run an agent.')
+  .option(
+    '-f, --force-deploy',
+    'Force redeployment of the agent before running'
+  )
   .addOption(CliCommonOptions.project)
   .addOption(CliCommonOptions.baseUrl)
   .addOption(Options.name)
@@ -55,6 +67,7 @@ const run = new Command()
       options: CliOptions & {
         input?: string;
         name: string;
+        forceDeploy?: boolean;
       }
     ) => {
       const config = new Config(options);
@@ -74,6 +87,7 @@ const run = new Command()
       const agents = new Agents(config);
       const { id: deploymentId } = await agents.deploy(project, {
         entryPoint: options.name,
+        force: options.forceDeploy,
       });
       await agents.run(
         project,

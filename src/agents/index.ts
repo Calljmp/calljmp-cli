@@ -199,8 +199,10 @@ ${keyValuesEntries}
         format: 'esm',
         platform: 'neutral',
         target: 'es2022',
-        minify: false,
+        minify: true,
         sourcemap: 'external',
+        sourcesContent: false,
+        keepNames: true,
         outfile: 'agent.js',
         entryPoints: [entryPoint],
         absWorkingDir: path.resolve(this._config.projectDirectory),
@@ -219,12 +221,20 @@ ${keyValuesEntries}
         f.path.endsWith('agent.js')
       )?.text;
 
+      const sourceMap = result.outputFiles.find(f =>
+        f.path.endsWith('agent.js.map')
+      )?.text;
+
       if (!code) {
         throw new Error('Build failed: No output code generated.');
       }
 
+      if (!sourceMap) {
+        throw new Error('Build failed: No source map generated.');
+      }
+
       spinner.succeed(chalk.green('Agent built.'));
-      return { code };
+      return { code, sourceMap };
     } catch (e) {
       spinner.fail(chalk.red('Agent build failed.'));
       throw new Error(`Build failed: ${(e as Error).message}`);
@@ -235,6 +245,7 @@ ${keyValuesEntries}
     project: Project,
     options?: {
       entryPoint?: string;
+      force?: boolean;
     }
   ) {
     const build = await this.build(options);
@@ -243,6 +254,7 @@ ${keyValuesEntries}
     try {
       const id = await this._deploy({
         projectId: project.id,
+        force: options?.force,
         ...build,
       });
       const agent = await this._retrieve({ id, projectId: project.id });
@@ -326,9 +338,13 @@ ${keyValuesEntries}
   private async _deploy({
     projectId,
     code,
+    sourceMap,
+    force,
   }: {
     projectId: number;
     code: string;
+    sourceMap?: string;
+    force?: boolean;
   }) {
     const response = await fetch(
       `${this._config.baseUrl}/project/${projectId}/ai/agent`,
@@ -338,7 +354,7 @@ ${keyValuesEntries}
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this._config.accessToken}`,
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, force, sourceMap }),
       }
     );
 
