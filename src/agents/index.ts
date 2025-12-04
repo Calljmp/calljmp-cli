@@ -188,7 +188,7 @@ ${keyValuesEntries}
     );
   }
 
-  async build(options?: { minify?: boolean; entryPoint?: string }) {
+  async build(options?: { entryPoint?: string }) {
     const spinner = ora(chalk.blue('Building agent...')).start();
     try {
       const entryPoint = await this._resolveEntryPoint(options?.entryPoint);
@@ -199,7 +199,9 @@ ${keyValuesEntries}
         format: 'esm',
         platform: 'neutral',
         target: 'es2022',
-        minify: options?.minify === false ? false : true,
+        minify: false,
+        sourcemap: 'external',
+        outfile: 'agent.js',
         entryPoints: [entryPoint],
         absWorkingDir: path.resolve(this._config.projectDirectory),
         mainFields: ['module', 'main'],
@@ -213,9 +215,12 @@ ${keyValuesEntries}
         );
       }
 
-      const code = result.outputFiles?.[0]?.text;
+      const code = result.outputFiles.find(f =>
+        f.path.endsWith('agent.js')
+      )?.text;
+
       if (!code) {
-        throw new Error('Build failed: No output generated.');
+        throw new Error('Build failed: No output code generated.');
       }
 
       spinner.succeed(chalk.green('Agent built.'));
