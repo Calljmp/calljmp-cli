@@ -19,6 +19,9 @@ export const CliCommonOptions = {
 export class Config {
   private _accessToken: string | null = null;
   private _projectId: number | null = null;
+  private _buildMap: Map<string, {
+    id: string;
+  }> = new Map();
 
   constructor(private _opts: CliOptions) {
     this.restore();
@@ -38,10 +41,14 @@ export class Config {
       const data = JSON.parse(content) as {
         accessToken?: string;
         projectId?: number;
+        buildMap?: [string, {
+          id: string;
+        }][];
       };
 
       this._accessToken = data.accessToken || this._accessToken;
       this._projectId = data.projectId || this._projectId;
+      this._buildMap = new Map(data.buildMap || []);
     } catch {
       // No config file, ignore
     }
@@ -51,6 +58,7 @@ export class Config {
     const data = {
       accessToken: this._accessToken,
       projectId: this._projectId,
+      buildMap: Array.from(this._buildMap.entries()),
     };
 
     fs.mkdirSync(this.dataDirectory, { recursive: true });
@@ -93,5 +101,23 @@ export class Config {
   set projectId(id: number | null) {
     this._projectId = id;
     this.save();
+  }
+
+  get buildMap() {
+    return this._buildMap;
+  }
+
+  addBuild(entryPoint: string, id: string) {
+    this._buildMap.set(entryPoint, { id });
+    this.save();
+  }
+
+  removeBuild(entryPoint: string) {
+    this._buildMap.delete(entryPoint);
+    this.save();
+  }
+
+  buildFor(entryPoint: string): { id: string } | null {
+    return this._buildMap.get(entryPoint) || null;
   }
 }

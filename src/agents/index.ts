@@ -22,7 +22,7 @@ import { Vault } from '../vault';
 import { workersCompatPlugin } from './workers-compat-plugin';
 
 export class Agents {
-  constructor(private _config: Config) {}
+  constructor(private _config: Config) { }
 
   async initializeProject(project: Project) {
     const spinner = ora(chalk.blue('Generating project...')).start();
@@ -234,7 +234,7 @@ ${keyValuesEntries}
       }
 
       spinner.succeed(chalk.green('Agent built.'));
-      return { code, sourceMap };
+      return { code, sourceMap, entryPoint };
     } catch (e) {
       spinner.fail(chalk.red('Agent build failed.'));
       throw new Error(`Build failed: ${(e as Error).message}`);
@@ -249,16 +249,22 @@ ${keyValuesEntries}
     }
   ) {
     const build = await this.build(options);
+    const previousBuild = this._config.buildFor(build.entryPoint);
 
     const spinner = ora(chalk.blue('Deploying agent...')).start();
     try {
       const id = await this._deploy({
         projectId: project.id,
         force: options?.force,
+        previousDeploymentId: previousBuild?.id,
         ...build,
       });
+
+      this._config.addBuild(build.entryPoint, id);
+
       const agent = await this._retrieve({ id, projectId: project.id });
       spinner.succeed(chalk.green('Agent deployed:'));
+
       logger.info(
         [
           `name: ${agent.name}`,
@@ -269,6 +275,7 @@ ${keyValuesEntries}
           .map(line => `  - ${line}`)
           .join('\n')
       );
+
       return { id: agent.deploymentId };
     } catch (error) {
       spinner.fail(
@@ -340,11 +347,13 @@ ${keyValuesEntries}
     code,
     sourceMap,
     force,
+    previousDeploymentId,
   }: {
     projectId: number;
     code: string;
     sourceMap?: string;
     force?: boolean;
+    previousDeploymentId?: string;
   }) {
     const response = await fetch(
       `${this._config.baseUrl}/project/${projectId}/ai/agent`,
@@ -354,7 +363,7 @@ ${keyValuesEntries}
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this._config.accessToken}`,
         },
-        body: JSON.stringify({ code, force, sourceMap }),
+        body: JSON.stringify({ code, force, sourceMap, previousDeploymentId }),
       }
     );
 
