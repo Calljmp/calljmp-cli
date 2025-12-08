@@ -22,7 +22,7 @@ import { Vault } from '../vault';
 import { workersCompatPlugin } from './workers-compat-plugin';
 
 export class Agents {
-  constructor(private _config: Config) { }
+  constructor(private _config: Config) {}
 
   async initializeProject(project: Project) {
     const spinner = ora(chalk.blue('Generating project...')).start();

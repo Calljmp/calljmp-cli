@@ -19,9 +19,12 @@ export const CliCommonOptions = {
 export class Config {
   private _accessToken: string | null = null;
   private _projectId: number | null = null;
-  private _buildMap: Map<string, {
-    id: string;
-  }> = new Map();
+  private _buildMap: Map<
+    string,
+    {
+      id: string;
+    }
+  > = new Map();
 
   constructor(private _opts: CliOptions) {
     this.restore();
@@ -41,9 +44,12 @@ export class Config {
       const data = JSON.parse(content) as {
         accessToken?: string;
         projectId?: number;
-        buildMap?: [string, {
-          id: string;
-        }][];
+        buildMap?: [
+          string,
+          {
+            id: string;
+          },
+        ][];
       };
 
       this._accessToken = data.accessToken || this._accessToken;
