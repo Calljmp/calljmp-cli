@@ -271,6 +271,7 @@ ${keyValuesEntries}
           `description: ${agent.description}`,
           `id: ${agent.deploymentId}`,
           `version: ${agent.version}`,
+          `url: ${chalk.underline(`https://dash.calljmp.com/projects/${project.id}/agents`)}`,
         ]
           .map(line => `  - ${line}`)
           .join('\n')
@@ -296,7 +297,7 @@ ${keyValuesEntries}
       spinner.succeed(chalk.green('Agent run initiated:'));
       logger.info(`  - id: ${result.id}`);
       logger.info(
-        `  - url: ${chalk.underline(`https://dash.calljmp.com/project/${project.id}/agents`)}`
+        `  - url: ${chalk.underline(`https://dash.calljmp.com/projects/${project.id}/observability`)}`
       );
       return result;
     } catch (error) {
@@ -304,6 +305,60 @@ ${keyValuesEntries}
         chalk.red(`Failed to run agent: ${(error as Error).message}`)
       );
       throw error;
+    }
+  }
+
+  async resume<Input = unknown>(
+    project: Project,
+    runId: string,
+    resumption: string,
+    input?: Input
+  ) {
+    const spinner = ora(chalk.blue('Resuming agent run...')).start();
+    try {
+      await this._resume<Input>({
+        projectId: project.id,
+        runId,
+        resumption,
+        input,
+      });
+      spinner.succeed(chalk.green('Agent run resumed.'));
+    } catch (error) {
+      spinner.fail(
+        chalk.red(`Failed to resume agent run: ${(error as Error).message}`)
+      );
+      throw error;
+    }
+  }
+
+  private async _resume<Input = unknown>({
+    projectId,
+    runId,
+    input,
+    resumption,
+  }: {
+    projectId: number;
+    runId: string;
+    input?: Input;
+    resumption: string;
+  }) {
+    const response = await fetch(
+      `${this._config.baseUrl}/project/${projectId}/ai/agent/run/${runId}/resume`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this._config.accessToken}`,
+        },
+        body: JSON.stringify({ input, resumption }),
+      }
+    );
+
+    if (!response.ok) {
+      const { error } = (await response.json()) as {
+        error: { name: string; message: string; code: ServiceErrorCode };
+      };
+      throw ServiceError.fromJson(error);
     }
   }
 

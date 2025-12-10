@@ -97,12 +97,58 @@ const run = new Command()
     }
   );
 
+const resume = new Command()
+  .name('resume')
+  .description('Resume an agent.')
+  .option(
+    '-r, --resumption <resumption>',
+    'Resumption token to continue the agent run'
+  )
+  .option('-t, --target <target>', 'Target run ID to resume the agent run')
+  .addOption(CliCommonOptions.project)
+  .addOption(CliCommonOptions.baseUrl)
+  .addOption(Options.name)
+  .addOption(Options.input)
+  .action(
+    async (
+      options: CliOptions & {
+        input?: string;
+        resumption: string;
+        target: string;
+        name: string;
+      }
+    ) => {
+      const config = new Config(options);
+
+      const authentication = new Authentication(config);
+      if (!authentication.authorized) {
+        await authentication.authorize();
+      }
+
+      const projects = new Projects(config);
+      if (!projects.hasSelected) {
+        await projects.select();
+      }
+
+      const project = await projects.selected();
+
+      const agents = new Agents(config);
+      await agents.resume(
+        project,
+        options.target,
+        options.resumption,
+        options.input ? JSON.parse(options.input) : undefined
+      );
+    }
+  );
+
 const agent = new Command()
   .name('agent')
   .description('Manage your agents.')
   .showHelpAfterError()
   .showSuggestionAfterError()
   .addCommand(deploy)
-  .addCommand(run);
+  .addCommand(run)
+  .addCommand(resume);
 
 export default agent;
