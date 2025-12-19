@@ -343,7 +343,7 @@ ${keyValuesEntries}
     resumption: string;
   }) {
     const response = await fetch(
-      `${this._config.baseUrl}/project/${projectId}/ai/agent/run/${runId}/resume`,
+      `${this._config.baseUrl}/project/${projectId}/agent/run/${runId}/resume`,
       {
         method: 'POST',
         headers: {
@@ -372,7 +372,7 @@ ${keyValuesEntries}
     input?: Input;
   }) {
     const response = await fetch(
-      `${this._config.baseUrl}/project/${projectId}/ai/agent/${id}`,
+      `${this._config.baseUrl}/project/${projectId}/agent/${id}`,
       {
         method: 'POST',
         headers: {
@@ -411,7 +411,7 @@ ${keyValuesEntries}
     previousDeploymentId?: string;
   }) {
     const response = await fetch(
-      `${this._config.baseUrl}/project/${projectId}/ai/agent`,
+      `${this._config.baseUrl}/project/${projectId}/agent`,
       {
         method: 'PUT',
         headers: {
@@ -441,7 +441,7 @@ ${keyValuesEntries}
     projectId: number;
   }) {
     const response = await fetch(
-      `${this._config.baseUrl}/project/${projectId}/ai/agent/${id}`,
+      `${this._config.baseUrl}/project/${projectId}/agent/${id}`,
       {
         method: 'GET',
         headers: {
