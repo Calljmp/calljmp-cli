@@ -31,7 +31,7 @@
     "prebuild": {
       "executor": "nx:run-commands",
       "dependsOn": [
-        "common:sync"
+        "cli:common:sync"
       ],
       "options": {
         "cwd": "apps/cli",
@@ -41,8 +41,8 @@
     "build:development": {
       "executor": "@nx/esbuild:esbuild",
       "dependsOn": [
-        "common:sync",
-        "prebuild"
+        "cli:common:sync",
+        "cli:prebuild"
       ],
       "outputs": [
         "{options.outputPath}"
@@ -71,8 +71,8 @@
     "build:production": {
       "executor": "@nx/esbuild:esbuild",
       "dependsOn": [
-        "common:sync",
-        "prebuild"
+        "cli:common:sync",
+        "cli:prebuild"
       ],
       "outputs": [
         "{options.outputPath}"
@@ -107,7 +107,7 @@
       "defaultConfiguration": "production",
       "executor": "nx:run-commands",
       "dependsOn": [
-        "build:production"
+        "cli:build:production"
       ],
       "options": {
         "cwd": "dist/apps/cli",
@@ -121,9 +121,9 @@
     "publish:git": {
       "executor": "nx:run-commands",
       "dependsOn": [
-        "common:sync",
-        "typecheck",
-        "prebuild"
+        "cli:common:sync",
+        "cli:typecheck",
+        "cli:prebuild"
       ],
       "options": {
         "cwd": "apps/cli",
@@ -135,7 +135,7 @@
     "run": {
       "executor": "nx:run-commands",
       "dependsOn": [
-        "build:development"
+        "cli:build:development"
       ],
       "options": {
         "commands": [
@@ -150,7 +150,7 @@
     "run:remote": {
       "executor": "nx:run-commands",
       "dependsOn": [
-        "build:development"
+        "cli:build:development"
       ],
       "options": {
         "commands": [
@@ -161,6 +161,10 @@
     },
     "typecheck": {
       "executor": "nx:run-commands",
+      "dependsOn": [
+        "cli:common:sync",
+        "cli:prebuild"
+      ],
       "options": {
         "cwd": "apps/cli",
         "commands": [

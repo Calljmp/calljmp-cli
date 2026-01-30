@@ -19,6 +19,7 @@ import path from 'path';
 import fetch from 'node-fetch';
 import esbuild from 'esbuild';
 import { Vault } from '../vault';
+import { Prompts } from '../prompts';
 import { workersCompatPlugin } from './workers-compat-plugin';
 
 export class Agents {
@@ -101,6 +102,12 @@ export class Agents {
         )
         .join('\n');
 
+      const promptsService = new Prompts(this._config);
+      const prompts = await promptsService.bindings(project);
+      const promptsEntries = prompts
+        .map(prompt => `    ${prompt.binding}: Prompt;`)
+        .join('\n');
+
       await fs.mkdir(this._config.typesDirectory, { recursive: true });
 
       const typesContent = `
@@ -110,9 +117,15 @@ export class Agents {
 
 export * from '@calljmp/agent';
 
+import { Prompt } from '@calljmp/agent';
+
 declare module '@calljmp/agent' {
   interface KeyValues {
 ${keyValuesEntries}
+  }
+
+  interface Prompts {
+${promptsEntries}
   }
 }
 `;
