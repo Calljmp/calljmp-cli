@@ -9,8 +9,14 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "@types/node"
+    ]
   },
-  "include": ["**/*.ts"],
+  "include": [
+    "**/*.ts",
+    ".calljmp/types/**/*.d.ts"
+  ],
   "exclude": ["node_modules"]
 }
